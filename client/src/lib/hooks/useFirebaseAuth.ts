@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
-import { User } from "firebase/auth"
+import { User, signOut } from "firebase/auth"
 import { firebaseAuth } from "@/lib/auth/firebase-auth"
+import { auth } from "@/lib/auth/firebase"
 
 export const useFirebaseAuth = () => {
   const [user, setUser] = useState<User | null>(null)
@@ -15,5 +16,9 @@ export const useFirebaseAuth = () => {
     return () => unsubscribe()
   }, [])
 
-  return { user, loading }
+  return { 
+    user, 
+    loading,
+    signOut: () => signOut(auth)
+  }
 }

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useAuth } from "@/lib/auth/auth-context"
+import { useAuth } from "@/lib/hooks/useAuth"
 import {
   Calendar,
   Users,
@@ -43,9 +43,9 @@ const managerNavigation = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { userProfile, agency } = useAuth()
 
-  const isManager = user?.role === "manager" || user?.role === "owner"
+  const isManager = userProfile?.role === "agency_manager" || userProfile?.role === "agency_owner"
 
   return (
     <div
@@ -60,7 +60,7 @@ export function Sidebar() {
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">BA</span>
             </div>
-            <span className="font-semibold text-sm">{user?.agencyName}</span>
+            <span className="font-semibold text-sm">{agency?.name}</span>
           </div>
         )}
         <Button variant="ghost" size="icon" onClick={() => setCollapsed(!collapsed)} className="h-8 w-8">
