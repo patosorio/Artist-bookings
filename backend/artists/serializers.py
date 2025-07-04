@@ -125,7 +125,7 @@ class ArtistSerializer(CountryFieldMixin, serializers.ModelSerializer):
 
     def update(self, instance: Artist, validated_data: Dict[str, Any]) -> Artist:
         """Update an Artist instance."""
-
+        # updated_by is handled in the viewset's perform_update
         if 'status' in validated_data:
             validated_data['is_active'] = validated_data['status'] == 'active'
         return super().update(instance, validated_data) 

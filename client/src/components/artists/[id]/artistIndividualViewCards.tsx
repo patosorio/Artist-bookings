@@ -31,8 +31,20 @@ import {
   Trash2,
   StickyNote,
   MessageSquare,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react"
 import type { Artist, ArtistNote, ArtistStats, UpdateArtistData } from "@/types/artists"
+import { useState } from "react"
+import { ArtistMemberForm, type ArtistMemberFormData } from "@/components/artists/forms/ArtistMemberForm"
+import { toast } from "sonner"
+import { artists } from "@/lib/api/artist-api"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 
 interface StatsCardProps {
   stats: ArtistStats
@@ -129,6 +141,10 @@ export function ArtistInfoCard({ artist }: ArtistInfoCardProps) {
           </div>
           <Separator />
           <div>
+            <p className="text-sm font-medium text-muted-foreground">Artist Fee</p>
+            {/* <p className="text-lg font-semibold">{artist.artist_fee ? `$${artist.artist_fee.toLocaleString()}` : "Not set"}</p> */}
+          </div>
+          <div>
             <p className="text-sm font-medium text-muted-foreground">Number of Members</p>
             <p className="text-lg font-semibold">{artist.number_of_members}</p>
           </div>
@@ -142,31 +158,304 @@ export function ArtistInfoCard({ artist }: ArtistInfoCardProps) {
   )
 }
 
+interface MembersInformationProps {
+  artist: Artist
+}
+
+export function MembersInformation({ artist }: MembersInformationProps) {
+  const [currentMemberIndex, setCurrentMemberIndex] = useState(0)
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
+  const [isEditMemberOpen, setIsEditMemberOpen] = useState(false)
+  const members = artist.members || []
+
+  const nextMember = () => {
+    setCurrentMemberIndex((prev) => (prev + 1) % members.length)
+  }
+
+  const previousMember = () => {
+    setCurrentMemberIndex((prev) => (prev - 1 + members.length) % members.length)
+  }
+
+  const currentMember = members[currentMemberIndex]
+
+  const handleAddMember = async (data: ArtistMemberFormData) => {
+    try {
+      await artists.addMember(artist.id, data)
+      window.location.reload() // Refresh to show new member
+      toast.success("Member added successfully!")
+    } catch (error) {
+      console.error("Failed to add member:", error)
+      toast.error("Failed to add member. Please try again.")
+    }
+  }
+
+  const handleEditMember = async (data: ArtistMemberFormData) => {
+    try {
+      if (!currentMember) return
+      await artists.updateMember(artist.id, currentMember.id, data)
+      window.location.reload() // Refresh to show updated member
+      toast.success("Member updated successfully!")
+    } catch (error) {
+      console.error("Failed to update member:", error)
+      toast.error("Failed to update member. Please try again.")
+    }
+  }
+
+  return (
+    <Card className="h-[600px] flex flex-col">
+      <CardHeader className="flex flex-col space-y-4 shrink-0 pb-4">
+        <CardTitle>Members Information</CardTitle>
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-2">
+            {members.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={previousMember}
+                  disabled={members.length <= 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Member {currentMemberIndex + 1} of {members.length}
+                </span>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={nextMember}
+                  disabled={members.length <= 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsAddMemberOpen(true)}
+              className="hover:bg-transparent"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+            {members.length > 0 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditMemberOpen(true)}
+                className="hover:bg-transparent"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="overflow-auto flex-1 p-0">
+        {members.length > 0 ? (
+          <div className="px-6 pt-2 space-y-4">
+            {/* ID Information */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full">
+                <h3 className="text-sm font-medium">ID Information</h3>
+                <ChevronDown className="h-4 w-4" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="pt-2">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Legal Name</p>
+                        <p className="text-sm">{currentMember.passport_name || "Not provided"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Date of Birth</p>
+                        <p className="text-sm">
+                          {currentMember.dob ? new Date(currentMember.dob).toLocaleDateString() : "Not provided"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Passport Number</p>
+                        <p className="text-sm">{currentMember.passport_number || "Not provided"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Passport Expiry</p>
+                        <p className="text-sm">
+                          {currentMember.passport_expiry ? new Date(currentMember.passport_expiry).toLocaleDateString() : "Not provided"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Separator />
+
+            {/* Residential Address Information */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full">
+                <h3 className="text-sm font-medium">Residential Address Information</h3>
+                <ChevronDown className="h-4 w-4" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="pt-2">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Residential Address</p>
+                      <p className="text-sm">{currentMember.residential_address || "Not provided"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Country of Residence</p>
+                      <p className="text-sm">{currentMember.country_of_residence || "Not provided"}</p>
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Separator />
+
+            {/* Financial Information */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full">
+                <h3 className="text-sm font-medium">Financial Information</h3>
+                <ChevronDown className="h-4 w-4" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="pt-2">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
+                      <p className="text-sm">{currentMember.payment_method || "Not set"}</p>
+                    </div>
+                    {currentMember.has_withholding && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Withholding Tax</p>
+                        <p className="text-sm">{currentMember.withholding_percentage}%</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Separator />
+
+            {/* Bank Information */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full">
+                <h3 className="text-sm font-medium">Bank Information</h3>
+                <ChevronDown className="h-4 w-4" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="pt-2">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Beneficiary Name</p>
+                        <p className="text-sm">{currentMember.bank_beneficiary || "Not provided"}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Account Number</p>
+                        <p className="text-sm">{currentMember.bank_account_number || "Not provided"}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Bank Address</p>
+                      <p className="text-sm">{currentMember.bank_address || "Not provided"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">SWIFT Code</p>
+                      <p className="text-sm">{currentMember.bank_swift_code || "Not provided"}</p>
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+
+            <Separator />
+
+            {/* Travel Information */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full">
+                <h3 className="text-sm font-medium">Travel Information</h3>
+                <ChevronDown className="h-4 w-4" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="pt-2">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Country of Departure</p>
+                      <p className="text-sm">{currentMember.country_of_departure || "Not provided"}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Flight Affiliate Program</p>
+                      <p className="text-sm">{currentMember.flight_affiliate_program || "Not provided"}</p>
+                    </div>
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground mb-2">No members added yet</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Add members to manage their personal, passport, financial, and travel information.
+            </p>
+            <Button onClick={() => setIsAddMemberOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Your First Member
+            </Button>
+          </div>
+        )}
+      </CardContent>
+
+      {/* Forms */}
+      <ArtistMemberForm
+        isOpen={isAddMemberOpen}
+        onClose={() => setIsAddMemberOpen(false)}
+        onSubmit={handleAddMember}
+        artistId={artist.id}
+      />
+
+      {currentMember && (
+        <ArtistMemberForm
+          isOpen={isEditMemberOpen}
+          onClose={() => setIsEditMemberOpen(false)}
+          onSubmit={handleEditMember}
+          initialData={currentMember}
+          artistId={artist.id}
+        />
+      )}
+    </Card>
+  )
+}
+
 interface BookingsTabsProps {
   stats: ArtistStats
 }
 
 export function BookingsTabs({ stats }: BookingsTabsProps) {
   return (
-    <Tabs defaultValue="upcoming" className="space-y-4">
-      <TabsList>
-        <TabsTrigger value="upcoming">Upcoming Bookings</TabsTrigger>
-        <TabsTrigger value="past">Past Bookings</TabsTrigger>
-        <TabsTrigger value="documents">Documents</TabsTrigger>
-      </TabsList>
+    <Card>
+      <CardHeader>
+        <CardTitle>Bookings</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Tabs defaultValue="upcoming" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+            <TabsTrigger value="past">Past</TabsTrigger>
+          </TabsList>
 
-      <TabsContent value="upcoming" className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Upcoming Performances
-            </CardTitle>
-            <CardDescription>
-              {stats.upcomingBookingsCount} upcoming booking{stats.upcomingBookingsCount !== 1 ? "s" : ""}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <TabsContent value="upcoming" className="space-y-4">
             <div className="text-center py-8">
               <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No upcoming bookings</p>
@@ -175,52 +464,41 @@ export function BookingsTabs({ stats }: BookingsTabsProps) {
                 Create New Booking
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
+          </TabsContent>
 
-      <TabsContent value="past" className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Past Performances
-            </CardTitle>
-            <CardDescription>
-              {stats.completedBookingsCount} completed booking{stats.completedBookingsCount !== 1 ? "s" : ""}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <TabsContent value="past" className="space-y-4">
             <div className="text-center py-8">
               <Clock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground">No past bookings</p>
             </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
+          </TabsContent>
+        </Tabs>
+      </CardContent>
+    </Card>
+  )
+}
 
-      <TabsContent value="documents" className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Artist Documents
-            </CardTitle>
-            <CardDescription>Contracts, riders, and other files for this artist</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">No documents yet</p>
-              <Button variant="outline" disabled>
-                <Plus className="h-4 w-4 mr-2" />
-                Upload Document
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-    </Tabs>
+export function Documents() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5" />
+          Documents
+        </CardTitle>
+        <CardDescription>Contracts, riders, and other files for this artist</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="text-center py-8">
+          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground mb-4">No documents yet</p>
+          <Button variant="outline" disabled>
+            <Plus className="h-4 w-4 mr-2" />
+            Upload Document
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

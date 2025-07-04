@@ -36,7 +36,7 @@ export default function ArtistsPage() {
   })
 
   useEffect(() => {
-    loadArtists()
+      loadArtists()
   }, [])
 
   const loadArtists = async () => {

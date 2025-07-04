@@ -47,6 +47,21 @@ class ArtistApi {
   async deleteNote(artistId: string, noteId: string): Promise<void> {
     await apiClient.delete(`${this.BASE_PATH}/${artistId}/notes/${noteId}/`)
   }
+
+  // Add these new methods at the end
+  async addMember(artistId: string, data: any): Promise<any> {
+    const response = await apiClient.post(`${this.BASE_PATH}/${artistId}/members/`, data)
+    return response.data
+  }
+
+  async updateMember(artistId: string, memberId: string, data: any): Promise<any> {
+    const response = await apiClient.patch(`${this.BASE_PATH}/${artistId}/members/${memberId}/`, data)
+    return response.data
+  }
+
+  async deleteMember(artistId: string, memberId: string): Promise<void> {
+    await apiClient.delete(`${this.BASE_PATH}/${artistId}/members/${memberId}/`)
+  }
 }
 
 export const artists = new ArtistApi()

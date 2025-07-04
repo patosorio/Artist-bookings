@@ -14,6 +14,8 @@ import {
   BookingsTabs,
   NotesSection,
   EditArtistDialog,
+  Documents,
+  MembersInformation,
 } from "@/components/artists/[id]/artistIndividualViewCards"
 
 // Placeholder data until we implement bookings functionality
@@ -187,30 +189,29 @@ export default function ArtistDetailPage() {
       {/* Stats Cards */}
       <StatsCards stats={stats} />
 
-      {/* Main Content */}
+      {/* Main Content - First Row */}
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Artist Information */}
         <ArtistInfoCard artist={artist} />
-
-        {/* Bookings and Details */}
-        <div className="md:col-span-2">
-          <BookingsTabs stats={stats} />
-        </div>
+        <BookingsTabs stats={stats} />
+        <MembersInformation artist={artist} />
       </div>
 
-      {/* Notes Section */}
-      <NotesSection
-        artist={artist}
-        onAddNote={handleAddNote}
-        onUpdateNote={handleUpdateNote}
-        onDeleteNote={handleDeleteNote}
-        isAddNoteDialogOpen={isAddNoteDialogOpen}
-        setIsAddNoteDialogOpen={setIsAddNoteDialogOpen}
-        newNote={newNote}
-        setNewNote={setNewNote}
-        editingNote={editingNote}
-        setEditingNote={setEditingNote}
-      />
+      {/* Main Content - Second Row */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Documents />
+        <NotesSection
+          artist={artist}
+          onAddNote={handleAddNote}
+          onUpdateNote={handleUpdateNote}
+          onDeleteNote={handleDeleteNote}
+          isAddNoteDialogOpen={isAddNoteDialogOpen}
+          setIsAddNoteDialogOpen={setIsAddNoteDialogOpen}
+          newNote={newNote}
+          setNewNote={setNewNote}
+          editingNote={editingNote}
+          setEditingNote={setEditingNote}
+        />
+      </div>
 
       {/* Edit Artist Dialog */}
       <EditArtistDialog
