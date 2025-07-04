@@ -45,7 +45,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { userProfile, agency } = useAuth()
 
-  const isManager = userProfile?.role === "agency_manager" || userProfile?.role === "agency_owner"
+  const isManager = userProfile?.role === "agency_owner" || userProfile?.role === "agency_manager"
 
   return (
     <div

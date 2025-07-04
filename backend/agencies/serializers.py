@@ -2,6 +2,11 @@ from rest_framework import serializers
 from django_countries.serializers import CountryFieldMixin
 from .models import Agency, AgencyBusinessDetails, AgencySettings, UserProfile
 from authentication.models import User
+from django.db.models.deletion import ProtectedError
+from django.db.utils import IntegrityError
+from django.db import transaction
+from rest_framework.response import Response
+from rest_framework import status
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -45,16 +50,71 @@ class AgencySerializer(CountryFieldMixin, serializers.ModelSerializer):
         business_details_data = validated_data.pop('business_details', None)
         agency_settings_data = validated_data.pop('agency_settings', None)
         
-        agency = Agency.objects.create(**validated_data)
+        # Set is_set_up based on whether business details are provided
+        validated_data['is_set_up'] = bool(
+            business_details_data and 
+            all(business_details_data.values())
+        )
         
-        if business_details_data:
-            AgencyBusinessDetails.objects.create(agency=agency, **business_details_data)
-        else:
-            AgencyBusinessDetails.objects.create(agency=agency)
+        try:
+            with transaction.atomic():
+                # Check if user already has an agency
+                if hasattr(validated_data['owner'], 'owned_agency'):
+                    raise serializers.ValidationError(
+                        "User already owns an agency"
+                    )
+                
+                agency = Agency.objects.create(**validated_data)
+                
+                # Always create related objects
+                AgencyBusinessDetails.objects.create(
+                    agency=agency,
+                    **(business_details_data or {})
+                )
+                AgencySettings.objects.create(
+                    agency=agency,
+                    **(agency_settings_data or {})
+                )
+
+                # Create UserProfile for agency owner
+                UserProfile.objects.create(
+                    user=validated_data['owner'],
+                    agency=agency,
+                    role="agency_owner",
+                    is_active=True
+                )
+                
+                return agency
+                
+        except IntegrityError as e:
+            raise serializers.ValidationError(
+                "Failed to create agency. User might already own one."
+            )
+
+def post(self, request):
+    """
+    Create new agency with transaction safety
+    """
+    # Check if this is a "setup later" request
+    is_setup_later = not request.data.get('business_details')
+    
+    serializer = AgencySerializer(data=request.data)
+    if serializer.is_valid():
+        try:
+            with transaction.atomic():
+                agency = serializer.save(
+                    owner=request.user,
+                    is_set_up=not is_setup_later  # Set is_set_up to False for setup later
+                )
+                
+            return Response({
+                **serializer.data,
+                "setup_complete": not is_setup_later
+            }, status=status.HTTP_201_CREATED)
             
-        if agency_settings_data:
-            AgencySettings.objects.create(agency=agency, **agency_settings_data)
-        else:
-            AgencySettings.objects.create(agency=agency)
-            
-        return agency
+        except IntegrityError:
+            return Response(
+                {"detail": "Failed to create agency. User might already own one."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

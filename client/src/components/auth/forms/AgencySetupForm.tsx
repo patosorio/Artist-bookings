@@ -17,7 +17,7 @@ type Step = "basic" | "business"
 
 export function AgencySetupForm() {
   const router = useRouter()
-  const { firebaseUser } = useAuthContext()
+  const { firebaseUser, refreshUserProfile } = useAuthContext()
   const [currentStep, setCurrentStep] = useState<Step>("basic")
 
   const [formData, setFormData] = useState<CreateAgencyDto>({
@@ -64,6 +64,8 @@ export function AgencySetupForm() {
 
     try {
       await authApi.createAgency(formData)
+      // Refresh user profile to get updated agency data
+      await refreshUserProfile()
       router.push("/dashboard")
     } catch (err: any) {
       console.error("Agency setup failed:", err)
@@ -97,6 +99,8 @@ export function AgencySetupForm() {
         phone_number: formData.phone_number
       }
       await authApi.createAgency(basicInfo)
+      // Refresh user profile to get updated agency data
+      await refreshUserProfile()
       router.push("/dashboard")
     } catch (err: any) {
       console.error("Agency setup failed:", err)
