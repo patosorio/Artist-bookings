@@ -19,7 +19,7 @@ class AuthApi {
   }
 
   async createAgency(data: CreateAgencyDto): Promise<Agency> {
-    const response = await apiClient.post("/api/v1/agencies/agencies/", data)
+    const response = await apiClient.post("/api/v1/agencies/", data)
     return response.data
   }
 

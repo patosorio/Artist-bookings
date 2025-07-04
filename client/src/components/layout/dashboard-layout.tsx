@@ -1,14 +1,13 @@
 "use client"
 
 import type React from "react"
-
-import { useAuth } from "@/lib/auth/auth-context"
+import { useAuth } from "@/lib/hooks/useAuth"
 import { Sidebar } from "./sidebar"
 import { Header } from "./header"
 import { Loader2 } from "lucide-react"
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { userProfile, loading } = useAuth()
 
   if (loading) {
     return (
@@ -18,7 +17,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!user) {
+  if (!userProfile) {
     return null // This will be handled by the auth redirect
   }
 

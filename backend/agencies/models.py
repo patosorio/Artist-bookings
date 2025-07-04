@@ -16,7 +16,7 @@ class Agency(models.Model):
     phone_number = models.CharField(max_length=50, blank=True, null=True)
 
     logo = models.ImageField(upload_to="agency_logos/", blank=True, null=True)
-    slug = models.SlugField(unique=True, blank=True)
+    slug = models.SlugField(unique=True, blank=True, db_index=True)
 
     is_set_up = models.BooleanField(default=False)
 
@@ -88,6 +88,10 @@ class UserProfile(models.Model):
 
     class Meta:
         verbose_name_plural = "User profiles"
+        indexes = [
+            models.Index(fields=['agency', 'role']),
+            models.Index(fields=['is_active'])
+        ]
 
     def __str__(self):
         return f"{self.user.email} - {self.role}"

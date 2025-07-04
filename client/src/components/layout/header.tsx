@@ -10,12 +10,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useAuth } from "@/lib/auth/auth-context"
+import { useAuth } from "@/lib/hooks/useAuth"
 import { Plus, User, LogOut } from "lucide-react"
 import Link from "next/link"
+import { useFirebaseAuth } from "@/lib/hooks/useFirebaseAuth"
 
 export function Header() {
-  const { user, logout } = useAuth()
+  const { userProfile } = useAuth()
+  const { signOut } = useFirebaseAuth()
+
+  const userInitials = userProfile?.email
+    ?.split("@")[0]
+    .split(".")
+    .map((n: string) => n[0])
+    .join("") || "U"
 
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -36,21 +44,15 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback>
-                    {user?.name
-                      ?.split(" ")
-                      .map((n) => n[0])
-                      .join("") || "U"}
-                  </AvatarFallback>
+                  <AvatarFallback>{userInitials}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user?.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-                  <p className="text-xs leading-none text-muted-foreground capitalize">{user?.role}</p>
+                  <p className="text-sm font-medium leading-none">{userProfile?.email}</p>
+                  <p className="text-xs leading-none text-muted-foreground capitalize">{userProfile?.role}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -61,7 +63,7 @@ export function Header() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout}>
+              <DropdownMenuItem onClick={signOut}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Log out
               </DropdownMenuItem>

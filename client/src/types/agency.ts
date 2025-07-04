@@ -1,5 +1,16 @@
 import { UserProfile } from "./auth"
 
+export interface AgencyUser {
+  id: string
+  name: string
+  email: string
+  role: "agency_owner" | "agency_manager" | "agency_agent" | "agency_assistant"
+  is_active: boolean
+  created_at: string
+  updated_at: string
+  status: "pending" | "active" | "inactive"
+}
+
 export interface Agency {
   id: number
   name: string

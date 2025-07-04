@@ -16,6 +16,7 @@ type AuthContextType = {
   isAuthenticated: boolean
   needsAgencySetup: () => boolean
   needsEmailVerification: () => boolean
+  refreshUserProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -29,7 +30,7 @@ const transformUserProfile = (response: AxiosResponse<any>): UserProfile => {
     firstName: data.first_name || '',
     lastName: data.last_name || '',
     isEmailVerified: data.is_email_verified || false,
-    role: data.role || '',
+    role: data.role || null,
     agency: data.agency || null
   }
 }
@@ -56,30 +57,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe()
   }, [])
 
+  const refreshUserProfile = async () => {
+    if (!firebaseUser) return
+
+    try {
+      const response = await authApi.getUserProfile()
+      const profile = transformUserProfile(response)
+      setUserProfile(profile)
+      setAgency(profile.agency || null)
+    } catch (err) {
+      console.error("Failed to fetch user profile:", err)
+      setUserProfile(null)
+      setAgency(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Handle user profile fetching separately
   useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!firebaseUser) return
-
-      try {
-        const response = await authApi.getUserProfile()
-        const profile = transformUserProfile(response)
-        setUserProfile(profile)
-        setAgency(profile.agency || null)
-      } catch (err) {
-        console.error("Failed to fetch user profile:", err)
-        setUserProfile(null)
-        setAgency(null)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchUserProfile()
+    refreshUserProfile()
   }, [firebaseUser])
 
   const needsAgencySetup = () => {
-    return !!userProfile && !agency
+    // User needs agency setup if they have a profile but either:
+    // 1. No agency, or
+    // 2. No role assigned
+    return !!userProfile && (!agency || !userProfile.role)
   }
 
   const needsEmailVerification = () => {
@@ -95,7 +99,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         isAuthenticated: !!firebaseUser,
         needsAgencySetup,
-        needsEmailVerification
+        needsEmailVerification,
+        refreshUserProfile
       }}
     >
       {children}

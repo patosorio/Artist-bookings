@@ -20,7 +20,7 @@ export interface UserProfile {
   lastName?: string;
   isEmailVerified: boolean;
   agency?: Agency;
-  role?: string;
+  role?: "agency_owner" | "agency_manager" | "agency_agent" | "agency_assistant";
   token?: string;
 }
 
