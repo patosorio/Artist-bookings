@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Edit, Plus } from "lucide-react"
 import { artists } from "@/lib/api/artist-api"
-import type { Artist, ArtistNote, ArtistStats, UpdateArtistData } from "@/types/artists"
+import type { Artist, ArtistNote, ArtistStats, UpdateArtistData, ArtistMember, ArtistMemberFormData } from "@/types/artists"
 import { toast } from "sonner"
 import {
   StatsCards,
@@ -16,7 +16,7 @@ import {
   EditArtistDialog,
   Documents,
   MembersInformation,
-} from "@/components/artists/[id]/artistIndividualViewCards"
+} from "@/components/artists/[id]/ArtistIndividualViewCards"
 
 // Placeholder data until we implement bookings functionality
 const PLACEHOLDER_STATS: ArtistStats = {
@@ -54,6 +54,10 @@ export default function ArtistDetailPage() {
     color: "yellow",
   })
   const [editingNote, setEditingNote] = useState<ArtistNote | null>(null)
+
+  // Member Management
+  const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false)
+  const [editingMember, setEditingMember] = useState<ArtistMember | null>(null)
 
   useEffect(() => {
     loadArtistData()
@@ -145,6 +149,48 @@ export default function ArtistDetailPage() {
     }
   }
 
+  const handleAddMember = async (data: ArtistMemberFormData) => {
+    try {
+      const member = await artists.addMember(artistId, data)
+      setArtist((prev) => prev ? {
+        ...prev,
+        members: [...(prev.members || []), member]
+      } : null)
+      toast.success("Member added successfully!")
+    } catch (error) {
+      console.error("Failed to add member:", error)
+      toast.error("Failed to add member. Please try again.")
+    }
+  }
+
+  const handleUpdateMember = async (memberId: string, data: ArtistMemberFormData) => {
+    try {
+      const updated = await artists.updateMember(artistId, memberId, data)
+      setArtist((prev) => prev ? {
+        ...prev,
+        members: prev.members.map((member) => (member.id === memberId ? updated : member))
+      } : null)
+      toast.success("Member updated successfully!")
+    } catch (error) {
+      console.error("Failed to update member:", error)
+      toast.error("Failed to update member. Please try again.")
+    }
+  }
+
+  const handleDeleteMember = async (memberId: string) => {
+    try {
+      await artists.deleteMember(artistId, memberId)
+      setArtist((prev) => prev ? {
+        ...prev,
+        members: prev.members.filter((member) => member.id !== memberId)
+      } : null)
+      toast.success("Member deleted successfully!")
+    } catch (error) {
+      console.error("Failed to delete member:", error)
+      toast.error("Failed to delete member. Please try again.")
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
@@ -190,10 +236,19 @@ export default function ArtistDetailPage() {
       <StatsCards stats={stats} />
 
       {/* Main Content - First Row */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3 h-full">
         <ArtistInfoCard artist={artist} />
         <BookingsTabs stats={stats} />
-        <MembersInformation artist={artist} />
+        <MembersInformation 
+          artist={artist}
+          onAddMember={handleAddMember}
+          onUpdateMember={handleUpdateMember}
+          onDeleteMember={handleDeleteMember}
+          isMemberDialogOpen={isMemberDialogOpen}
+          setIsMemberDialogOpen={setIsMemberDialogOpen}
+          editingMember={editingMember}
+          setEditingMember={setEditingMember}
+        />
       </div>
 
       {/* Main Content - Second Row */}

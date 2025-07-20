@@ -70,10 +70,12 @@ interface ArtistGridProps {
 
 export function ArtistGrid({ artists, onEdit }: ArtistGridProps) {
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {artists.map((artist) => (
-        <ArtistCard key={artist.id} artist={artist} onEdit={onEdit} />
-      ))}
+    <div className="max-w-7xl">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {artists.map((artist) => (
+          <ArtistCard key={artist.id} artist={artist} onEdit={onEdit} />
+        ))}
+      </div>
     </div>
   )
 }

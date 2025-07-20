@@ -79,4 +79,23 @@ export interface ArtistSocialLinks {
     is_active?: boolean
   }
   
-  export interface UpdateArtistData extends Partial<CreateArtistData> {} 
+  export interface UpdateArtistData extends Partial<CreateArtistData> {}
+  
+  export interface ArtistMemberFormData {
+    passport_name: string
+    residential_address: string
+    country_of_residence: string
+    dob: string
+    passport_number: string
+    passport_expiry: string
+    artist_fee: number
+    has_withholding: boolean
+    withholding_percentage?: number
+    payment_method: 'BANK_TRANSFER' | 'PAYPAL' | 'CRYPTO' | 'OTHER'
+    bank_beneficiary: string
+    bank_account_number: string
+    bank_address: string
+    bank_swift_code: string
+    flight_affiliate_program: string
+    country_of_departure: string
+  } 

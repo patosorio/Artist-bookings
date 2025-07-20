@@ -35,9 +35,9 @@ import {
   ChevronRight,
   ChevronDown,
 } from "lucide-react"
-import type { Artist, ArtistNote, ArtistStats, UpdateArtistData } from "@/types/artists"
+import type { Artist, ArtistNote, ArtistStats, UpdateArtistData, ArtistMember } from "@/types/artists"
 import { useState } from "react"
-import { ArtistMemberForm, type ArtistMemberFormData } from "@/components/artists/forms/ArtistMemberForm"
+import { ArtistMemberForm, type ArtistMemberFormData } from "@/components/artists/[id]/forms/ArtistMemberForm"
 import { toast } from "sonner"
 import { artists } from "@/lib/api/artist-api"
 import {
@@ -113,44 +113,46 @@ interface ArtistInfoCardProps {
 
 export function ArtistInfoCard({ artist }: ArtistInfoCardProps) {
   return (
-    <Card className="md:col-span-1">
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>Artist Information</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-center">
-          <div className="w-32 h-32 bg-muted rounded-full flex items-center justify-center">
-            <Users className="h-16 w-16 text-muted-foreground" />
-          </div>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Bio</p>
-            <p className="text-sm">{artist.bio || "No bio available"}</p>
-          </div>
-          <Separator />
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">{artist.email}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">{artist.phone}</span>
+      <CardContent className="flex-1">
+        <div className="space-y-4">
+          <div className="flex items-center justify-center">
+            <div className="w-32 h-32 bg-muted rounded-full flex items-center justify-center">
+              <Users className="h-16 w-16 text-muted-foreground" />
             </div>
           </div>
-          <Separator />
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Artist Fee</p>
-            {/* <p className="text-lg font-semibold">{artist.artist_fee ? `$${artist.artist_fee.toLocaleString()}` : "Not set"}</p> */}
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Number of Members</p>
-            <p className="text-lg font-semibold">{artist.number_of_members}</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Member Since</p>
-            <p className="text-sm">{new Date(artist.created_at).toLocaleDateString()}</p>
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Bio</p>
+              <p className="text-sm">{artist.bio || "No bio available"}</p>
+            </div>
+            <Separator />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{artist.email}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{artist.phone}</span>
+              </div>
+            </div>
+            <Separator />
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Artist Fee</p>
+              {/* <p className="text-lg font-semibold">{artist.artist_fee ? `$${artist.artist_fee.toLocaleString()}` : "Not set"}</p> */}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Number of Members</p>
+              <p className="text-lg font-semibold">{artist.number_of_members}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Member Since</p>
+              <p className="text-sm">{new Date(artist.created_at).toLocaleDateString()}</p>
+            </div>
           </div>
         </div>
       </CardContent>
@@ -160,12 +162,26 @@ export function ArtistInfoCard({ artist }: ArtistInfoCardProps) {
 
 interface MembersInformationProps {
   artist: Artist
+  onAddMember: (data: ArtistMemberFormData) => Promise<void>
+  onUpdateMember: (memberId: string, data: ArtistMemberFormData) => Promise<void>
+  onDeleteMember: (memberId: string) => Promise<void>
+  isMemberDialogOpen: boolean
+  setIsMemberDialogOpen: (open: boolean) => void
+  editingMember: ArtistMember | null
+  setEditingMember: (member: ArtistMember | null) => void
 }
 
-export function MembersInformation({ artist }: MembersInformationProps) {
+export function MembersInformation({ 
+  artist,
+  onAddMember,
+  onUpdateMember,
+  onDeleteMember,
+  isMemberDialogOpen,
+  setIsMemberDialogOpen,
+  editingMember,
+  setEditingMember
+}: MembersInformationProps) {
   const [currentMemberIndex, setCurrentMemberIndex] = useState(0)
-  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
-  const [isEditMemberOpen, setIsEditMemberOpen] = useState(false)
   const members = artist.members || []
 
   const nextMember = () => {
@@ -178,64 +194,52 @@ export function MembersInformation({ artist }: MembersInformationProps) {
 
   const currentMember = members[currentMemberIndex]
 
-  const handleAddMember = async (data: ArtistMemberFormData) => {
-    try {
-      await artists.addMember(artist.id, data)
-      window.location.reload() // Refresh to show new member
-      toast.success("Member added successfully!")
-    } catch (error) {
-      console.error("Failed to add member:", error)
-      toast.error("Failed to add member. Please try again.")
+  const handleSubmit = async (data: ArtistMemberFormData) => {
+    if (editingMember) {
+      await onUpdateMember(editingMember.id, data)
+    } else {
+      await onAddMember(data)
     }
-  }
-
-  const handleEditMember = async (data: ArtistMemberFormData) => {
-    try {
-      if (!currentMember) return
-      await artists.updateMember(artist.id, currentMember.id, data)
-      window.location.reload() // Refresh to show updated member
-      toast.success("Member updated successfully!")
-    } catch (error) {
-      console.error("Failed to update member:", error)
-      toast.error("Failed to update member. Please try again.")
-    }
+    setIsMemberDialogOpen(false)
+    setEditingMember(null)
   }
 
   return (
-    <Card className="h-[600px] flex flex-col">
-      <CardHeader className="flex flex-col space-y-4 shrink-0 pb-4">
-        <CardTitle>Members Information</CardTitle>
-        <div className="flex items-center justify-between w-full">
+    <Card className="h-full flex flex-col">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Members Information</CardTitle>
+          {members.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={previousMember}
+                disabled={members.length <= 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Member {currentMemberIndex + 1} of {members.length}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={nextMember}
+                disabled={members.length <= 1}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
           <div className="flex items-center gap-2">
-            {members.length > 0 && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={previousMember}
-                  disabled={members.length <= 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Member {currentMemberIndex + 1} of {members.length}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={nextMember}
-                  disabled={members.length <= 1}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-2 ml-auto">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setIsAddMemberOpen(true)}
+              onClick={() => {
+                setEditingMember(null)
+                setIsMemberDialogOpen(true)
+              }}
               className="hover:bg-transparent"
             >
               <Plus className="h-4 w-4" />
@@ -244,7 +248,10 @@ export function MembersInformation({ artist }: MembersInformationProps) {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsEditMemberOpen(true)}
+                onClick={() => {
+                  setEditingMember(currentMember)
+                  setIsMemberDialogOpen(true)
+                }}
                 className="hover:bg-transparent"
               >
                 <Edit className="h-4 w-4" />
@@ -253,154 +260,122 @@ export function MembersInformation({ artist }: MembersInformationProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="overflow-auto flex-1 p-0">
+      <CardContent className="flex-1 overflow-auto">
         {members.length > 0 ? (
-          <div className="px-6 pt-2 space-y-4">
+          <div className="space-y-6">
             {/* ID Information */}
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full">
-                <h3 className="text-sm font-medium">ID Information</h3>
-                <ChevronDown className="h-4 w-4" />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="pt-2">
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Legal Name</p>
-                        <p className="text-sm">{currentMember.passport_name || "Not provided"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Date of Birth</p>
-                        <p className="text-sm">
-                          {currentMember.dob ? new Date(currentMember.dob).toLocaleDateString() : "Not provided"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Passport Number</p>
-                        <p className="text-sm">{currentMember.passport_number || "Not provided"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Passport Expiry</p>
-                        <p className="text-sm">
-                          {currentMember.passport_expiry ? new Date(currentMember.passport_expiry).toLocaleDateString() : "Not provided"}
-                        </p>
-                      </div>
-                    </div>
+            <div>
+              <h3 className="text-sm font-medium mb-4">ID Information</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Legal Name</p>
+                    <p className="text-sm">{currentMember.passport_name || "Not provided"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Date of Birth</p>
+                    <p className="text-sm">
+                      {currentMember.dob ? new Date(currentMember.dob).toLocaleDateString() : "Not provided"}
+                    </p>
                   </div>
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Passport Number</p>
+                    <p className="text-sm">{currentMember.passport_number || "Not provided"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Passport Expiry</p>
+                    <p className="text-sm">
+                      {currentMember.passport_expiry ? new Date(currentMember.passport_expiry).toLocaleDateString() : "Not provided"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <Separator />
 
-            {/* Residential Address Information */}
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full">
-                <h3 className="text-sm font-medium">Residential Address Information</h3>
-                <ChevronDown className="h-4 w-4" />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="pt-2">
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Residential Address</p>
-                      <p className="text-sm">{currentMember.residential_address || "Not provided"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Country of Residence</p>
-                      <p className="text-sm">{currentMember.country_of_residence || "Not provided"}</p>
-                    </div>
+            {/* Tax Information */}
+            <div>
+              <h3 className="text-sm font-medium mb-4">Tax Information</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Address</p>
+                    <p className="text-sm">{currentMember.residential_address || "Not provided"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Country</p>
+                    <p className="text-sm">{currentMember.country_of_residence || "Not provided"}</p>
                   </div>
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
-
-            <Separator />
-
-            {/* Financial Information */}
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full">
-                <h3 className="text-sm font-medium">Financial Information</h3>
-                <ChevronDown className="h-4 w-4" />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="pt-2">
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
-                      <p className="text-sm">{currentMember.payment_method || "Not set"}</p>
-                    </div>
-                    {currentMember.has_withholding && (
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Withholding Tax</p>
-                        <p className="text-sm">{currentMember.withholding_percentage}%</p>
-                      </div>
-                    )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Tax Number</p>
+                    <p className="text-sm">Not provided</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Withholding Tax</p>
+                    <p className="text-sm">
+                      {currentMember.has_withholding ? `${currentMember.withholding_percentage}%` : "No withholding tax"}
+                    </p>
                   </div>
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
+              </div>
+            </div>
 
             <Separator />
 
             {/* Bank Information */}
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full">
-                <h3 className="text-sm font-medium">Bank Information</h3>
-                <ChevronDown className="h-4 w-4" />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="pt-2">
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Beneficiary Name</p>
-                        <p className="text-sm">{currentMember.bank_beneficiary || "Not provided"}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Account Number</p>
-                        <p className="text-sm">{currentMember.bank_account_number || "Not provided"}</p>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Bank Address</p>
-                      <p className="text-sm">{currentMember.bank_address || "Not provided"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">SWIFT Code</p>
-                      <p className="text-sm">{currentMember.bank_swift_code || "Not provided"}</p>
-                    </div>
+            <div>
+              <h3 className="text-sm font-medium mb-4">Bank Information</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Payment Method</p>
+                    <p className="text-sm">{currentMember.payment_method || "Not set"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Beneficiary Name</p>
+                    <p className="text-sm">{currentMember.bank_beneficiary || "Not provided"}</p>
                   </div>
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Account Number</p>
+                    <p className="text-sm">{currentMember.bank_account_number || "Not provided"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">SWIFT Code</p>
+                    <p className="text-sm">{currentMember.bank_swift_code || "Not provided"}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Bank Address</p>
+                  <p className="text-sm">{currentMember.bank_address || "Not provided"}</p>
+                </div>
+              </div>
+            </div>
 
             <Separator />
 
             {/* Travel Information */}
-            <Collapsible>
-              <CollapsibleTrigger className="flex items-center justify-between w-full">
-                <h3 className="text-sm font-medium">Travel Information</h3>
-                <ChevronDown className="h-4 w-4" />
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="pt-2">
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Country of Departure</p>
-                      <p className="text-sm">{currentMember.country_of_departure || "Not provided"}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Flight Affiliate Program</p>
-                      <p className="text-sm">{currentMember.flight_affiliate_program || "Not provided"}</p>
-                    </div>
+            <div>
+              <h3 className="text-sm font-medium mb-4">Travel Information</h3>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Flight Affiliate Program Name</p>
+                    <p className="text-sm">{currentMember.flight_affiliate_program || "Not provided"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">City of Departure</p>
+                    <p className="text-sm">{currentMember.country_of_departure || "Not provided"}</p>
                   </div>
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="text-center py-8">
@@ -409,7 +384,10 @@ export function MembersInformation({ artist }: MembersInformationProps) {
             <p className="text-sm text-muted-foreground mb-4">
               Add members to manage their personal, passport, financial, and travel information.
             </p>
-            <Button onClick={() => setIsAddMemberOpen(true)}>
+            <Button onClick={() => {
+              setEditingMember(null)
+              setIsMemberDialogOpen(true)
+            }}>
               <Plus className="h-4 w-4 mr-2" />
               Add Your First Member
             </Button>
@@ -417,23 +395,15 @@ export function MembersInformation({ artist }: MembersInformationProps) {
         )}
       </CardContent>
 
-      {/* Forms */}
       <ArtistMemberForm
-        isOpen={isAddMemberOpen}
-        onClose={() => setIsAddMemberOpen(false)}
-        onSubmit={handleAddMember}
-        artistId={artist.id}
+        isOpen={isMemberDialogOpen}
+        onClose={() => {
+          setIsMemberDialogOpen(false)
+          setEditingMember(null)
+        }}
+        onSubmit={handleSubmit}
+        member={editingMember}
       />
-
-      {currentMember && (
-        <ArtistMemberForm
-          isOpen={isEditMemberOpen}
-          onClose={() => setIsEditMemberOpen(false)}
-          onSubmit={handleEditMember}
-          initialData={currentMember}
-          artistId={artist.id}
-        />
-      )}
     </Card>
   )
 }
@@ -444,11 +414,11 @@ interface BookingsTabsProps {
 
 export function BookingsTabs({ stats }: BookingsTabsProps) {
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle>Bookings</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         <Tabs defaultValue="upcoming" className="space-y-4">
           <TabsList>
             <TabsTrigger value="upcoming">Upcoming</TabsTrigger>

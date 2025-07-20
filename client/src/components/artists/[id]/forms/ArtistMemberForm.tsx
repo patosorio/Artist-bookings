@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -8,13 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { CountrySelect } from "@/components/ui/country-select"
 import { Switch } from "@/components/ui/switch"
 import { format } from "date-fns"
+import type { ArtistMember } from "@/types/artists"
 
 interface ArtistMemberFormProps {
   isOpen: boolean
   onClose: () => void
   onSubmit: (data: ArtistMemberFormData) => Promise<void>
-  initialData?: Partial<ArtistMemberFormData>
-  artistId: string
+  member?: ArtistMember | null
 }
 
 export interface ArtistMemberFormData {
@@ -36,25 +36,57 @@ export interface ArtistMemberFormData {
   country_of_departure: string
 }
 
-export function ArtistMemberForm({ isOpen, onClose, onSubmit, initialData, artistId }: ArtistMemberFormProps) {
-  const [formData, setFormData] = useState<ArtistMemberFormData>({
-    passport_name: initialData?.passport_name || "",
-    residential_address: initialData?.residential_address || "",
-    country_of_residence: initialData?.country_of_residence || "",
-    dob: initialData?.dob || "",
-    passport_number: initialData?.passport_number || "",
-    passport_expiry: initialData?.passport_expiry || "",
-    artist_fee: initialData?.artist_fee || 0,
-    has_withholding: initialData?.has_withholding || false,
-    withholding_percentage: initialData?.withholding_percentage || 0,
-    payment_method: initialData?.payment_method || "BANK_TRANSFER",
-    bank_beneficiary: initialData?.bank_beneficiary || "",
-    bank_account_number: initialData?.bank_account_number || "",
-    bank_address: initialData?.bank_address || "",
-    bank_swift_code: initialData?.bank_swift_code || "",
-    flight_affiliate_program: initialData?.flight_affiliate_program || "",
-    country_of_departure: initialData?.country_of_departure || "",
-  })
+const defaultFormData: ArtistMemberFormData = {
+  passport_name: "",
+  residential_address: "",
+  country_of_residence: "",
+  dob: "",
+  passport_number: "",
+  passport_expiry: "",
+  artist_fee: 0,
+  has_withholding: false,
+  withholding_percentage: 0,
+  payment_method: "BANK_TRANSFER",
+  bank_beneficiary: "",
+  bank_account_number: "",
+  bank_address: "",
+  bank_swift_code: "",
+  flight_affiliate_program: "",
+  country_of_departure: "",
+}
+
+export function ArtistMemberForm({ isOpen, onClose, onSubmit, member }: ArtistMemberFormProps) {
+  const [formData, setFormData] = useState<ArtistMemberFormData>(defaultFormData)
+
+  // Update form data when member changes
+  useEffect(() => {
+    if (member) {
+      // Format dates to YYYY-MM-DD for input type="date"
+      const formattedDob = member.dob ? format(new Date(member.dob), 'yyyy-MM-dd') : ''
+      const formattedPassportExpiry = member.passport_expiry ? format(new Date(member.passport_expiry), 'yyyy-MM-dd') : ''
+
+      setFormData({
+        passport_name: member.passport_name,
+        residential_address: member.residential_address,
+        country_of_residence: member.country_of_residence,
+        dob: formattedDob,
+        passport_number: member.passport_number,
+        passport_expiry: formattedPassportExpiry,
+        artist_fee: member.artist_fee,
+        has_withholding: member.has_withholding,
+        withholding_percentage: member.withholding_percentage || 0,
+        payment_method: member.payment_method,
+        bank_beneficiary: member.bank_beneficiary,
+        bank_account_number: member.bank_account_number,
+        bank_address: member.bank_address,
+        bank_swift_code: member.bank_swift_code,
+        flight_affiliate_program: member.flight_affiliate_program,
+        country_of_departure: member.country_of_departure,
+      })
+    } else {
+      setFormData(defaultFormData)
+    }
+  }, [member])
 
   const handleArtistFeeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value === "" ? "0" : e.target.value
@@ -72,7 +104,7 @@ export function ArtistMemberForm({ isOpen, onClose, onSubmit, initialData, artis
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initialData ? "Edit Member" : "Add New Member"}</DialogTitle>
+          <DialogTitle>{member ? "Edit Member" : "Add New Member"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Personal Information */}
@@ -292,7 +324,7 @@ export function ArtistMemberForm({ isOpen, onClose, onSubmit, initialData, artis
               Cancel
             </Button>
             <Button type="submit">
-              {initialData ? "Update Member" : "Add Member"}
+              {member ? "Update Member" : "Add Member"}
             </Button>
           </div>
         </form>
