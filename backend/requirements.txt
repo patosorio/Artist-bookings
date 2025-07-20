@@ -10,8 +10,10 @@ Django==5.2.4
 django-cors-headers==4.7.0
 django-countries==7.6.1
 django-debug-toolbar==5.2.0
+django-filter==25.1
 djangorestframework==3.16.0
 dotenv==0.9.9
+drf-nested-routers==0.94.2
 firebase-admin==6.9.0
 google-api-core==2.25.1
 google-api-python-client==2.174.0
