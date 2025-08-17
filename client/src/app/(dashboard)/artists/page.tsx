@@ -13,7 +13,7 @@ import { artists } from "@/lib/api/artist-api"
 import type { Artist, CreateArtistData } from "@/types/artists"
 import { useAuth } from "@/lib/hooks/useAuth"
 import { useRouter } from "next/navigation"
-import { ArtistGrid } from "@/components/artists/ArtistCards"
+import { ArtistGrid } from "@/components/artists/artistCards"
 import { toast } from "sonner"
 
 export default function ArtistsPage() {
