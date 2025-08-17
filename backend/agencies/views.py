@@ -1,3 +1,4 @@
+# backend/agencies/views.py (Back to APIView)
 from rest_framework import status, viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -51,7 +52,7 @@ class AgencyQueryMixin:
         return queryset.first()
 
 
-class AgencyView(AgencyQueryMixin,APIView):
+class AgencyView(AgencyQueryMixin, APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
@@ -78,7 +79,7 @@ class AgencyView(AgencyQueryMixin,APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class AgencyDetailView(APIView):
+class AgencyDetailView(AgencyQueryMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, slug):
@@ -112,7 +113,7 @@ class AgencyDetailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class AgencyBusinessDetailsView(APIView):
+class AgencyBusinessDetailsView(AgencyQueryMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, slug):
@@ -125,7 +126,6 @@ class AgencyBusinessDetailsView(APIView):
                 {"detail": "Agency not found"}, 
                 status=status.HTTP_404_NOT_FOUND
             )
-        # Use get_or_create to handle missing business details
         business_details, created = AgencyBusinessDetails.objects.get_or_create(
             agency=agency
         )
@@ -209,16 +209,13 @@ class AgencySettingsView(AgencyQueryMixin, APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# Keep UserProfileViewSet as ModelViewSet since it works fine
 class UserProfileViewSet(AgencyQueryMixin, viewsets.ModelViewSet):
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        """
-        Optimized queryset with select_related for user data
-        """
         user = self.request.user
-        
         base_queryset = UserProfile.objects.select_related('user', 'agency')
         
         if hasattr(user, 'owned_agency'):
@@ -229,18 +226,12 @@ class UserProfileViewSet(AgencyQueryMixin, viewsets.ModelViewSet):
         return UserProfile.objects.none()
 
     def perform_create(self, serializer):
-        """
-        Create user profile with proper agency assignment
-        """
         if hasattr(self.request.user, 'owned_agency'):
             serializer.save(agency=self.request.user.owned_agency)
         else:
             raise ValidationError("User must own an agency to create profiles")
 
     def perform_update(self, serializer):
-        """
-        Update user profile with transaction safety
-        """
         with transaction.atomic():
             if hasattr(self.request.user, 'owned_agency'):
                 serializer.save(agency=self.request.user.owned_agency)
@@ -249,9 +240,6 @@ class UserProfileViewSet(AgencyQueryMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def bulk_create(self, request):
-        """
-        Optimized bulk creation of user profiles
-        """
         if not hasattr(request.user, 'owned_agency'):
             return Response(
                 {"detail": "User must own an agency"}, 

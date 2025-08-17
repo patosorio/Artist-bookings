@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth/firebase"
 import { authApi } from "@/lib/api/auth-api"
 import { UserProfile } from "@/types/auth"
 import { Agency } from "@/types/agency"
-import { AxiosResponse } from "axios"
+import { AxiosResponse, AxiosError } from "axios"
 
 type AuthContextType = {
   firebaseUser: User | null
@@ -66,9 +66,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserProfile(profile)
       setAgency(profile.agency || null)
     } catch (err) {
-      console.error("Failed to fetch user profile:", err)
-      setUserProfile(null)
-      setAgency(null)
+      // During registration, a 401 is expected briefly
+      const error = err as AxiosError
+      if (error.response?.status === 401) {
+        console.debug("Profile not ready yet, will retry...")
+      } else {
+        console.error("Failed to fetch user profile:", err)
+        setUserProfile(null)
+        setAgency(null)
+      }
     } finally {
       setLoading(false)
     }
@@ -76,14 +82,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Handle user profile fetching separately
   useEffect(() => {
-    refreshUserProfile()
+    if (firebaseUser) {
+      // Add a small delay to allow backend registration to complete
+      const timeoutId = setTimeout(() => {
+        refreshUserProfile()
+      }, 1000)
+
+      return () => clearTimeout(timeoutId)
+    }
   }, [firebaseUser])
 
   const needsAgencySetup = () => {
-    // User needs agency setup if they have a profile but either:
-    // 1. No agency, or
-    // 2. No role assigned
-    return !!userProfile && (!agency || !userProfile.role)
+    // User needs agency setup if they have a profile but no agency
+    // We don't care about is_set_up flag here - that's for business details
+    return !!userProfile && !agency?.id
   }
 
   const needsEmailVerification = () => {
