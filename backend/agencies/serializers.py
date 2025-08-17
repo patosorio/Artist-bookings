@@ -34,6 +34,9 @@ class AgencySerializer(CountryFieldMixin, serializers.ModelSerializer):
     agency_settings = AgencySettingsSerializer(required=False)
     users = UserProfileSerializer(many=True, read_only=True)
     owner_email = serializers.EmailField(source='owner.email', read_only=True)
+    website = serializers.URLField(required=False, allow_blank=True)
+    contact_email = serializers.EmailField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = Agency
@@ -91,30 +94,3 @@ class AgencySerializer(CountryFieldMixin, serializers.ModelSerializer):
                 "Failed to create agency. User might already own one."
             )
 
-def post(self, request):
-    """
-    Create new agency with transaction safety
-    """
-    # Check if this is a "setup later" request
-    is_setup_later = not request.data.get('business_details')
-    
-    serializer = AgencySerializer(data=request.data)
-    if serializer.is_valid():
-        try:
-            with transaction.atomic():
-                agency = serializer.save(
-                    owner=request.user,
-                    is_set_up=not is_setup_later  # Set is_set_up to False for setup later
-                )
-                
-            return Response({
-                **serializer.data,
-                "setup_complete": not is_setup_later
-            }, status=status.HTTP_201_CREATED)
-            
-        except IntegrityError:
-            return Response(
-                {"detail": "Failed to create agency. User might already own one."}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

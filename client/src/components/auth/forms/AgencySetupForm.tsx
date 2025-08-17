@@ -63,13 +63,19 @@ export function AgencySetupForm() {
     setError("")
 
     try {
-      await authApi.createAgency(formData)
-      // Refresh user profile to get updated agency data
+      const agency = await authApi.createAgency(formData)
+      // Refresh user profile to get updated agency data and wait for it
       await refreshUserProfile()
-      router.push("/dashboard")
+      // Double check that we have the agency data
+      if (agency?.id) {
+        router.push("/dashboard")
+      } else {
+        setError("Agency created but profile refresh failed. Please try again.")
+      }
     } catch (err: any) {
       console.error("Agency setup failed:", err)
-      setError("Failed to create agency. Please try again.")
+      const errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message || "Failed to create agency. Please try again."
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -98,13 +104,19 @@ export function AgencySetupForm() {
         contact_email: formData.contact_email,
         phone_number: formData.phone_number
       }
-      await authApi.createAgency(basicInfo)
-      // Refresh user profile to get updated agency data
+      const agency = await authApi.createAgency(basicInfo)
+      // Refresh user profile to get updated agency data and wait for it
       await refreshUserProfile()
-      router.push("/dashboard")
+      // Double check that we have the agency data
+      if (agency?.id) {
+        router.push("/dashboard")
+      } else {
+        setError("Agency created but profile refresh failed. Please try again.")
+      }
     } catch (err: any) {
       console.error("Agency setup failed:", err)
-      setError("Failed to create agency. Please try again.")
+      const errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message || "Failed to create agency. Please try again."
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

@@ -81,29 +81,21 @@ class ArtistViewSet(ArtistQueryMixin, viewsets.ModelViewSet):
         """Get the queryset filtered by the user's agency with optimized joins."""
         return self.get_artist_queryset()
 
-    def create(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        """Create a new artist with transaction safety."""
-        logger.info(f"Creating artist with data: {request.data}")
-        try:
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            with transaction.atomic():
-                self.perform_create(serializer)
-                # Create social links by default
-                ArtistSocialLinks.objects.create(artist=serializer.instance)
-            headers = self.get_success_headers(serializer.data)
-            logger.info("Artist created successfully")
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-        except Exception as e:
-            logger.error(f"Error creating artist: {str(e)}")
-            raise
-
     def perform_create(self, serializer: ArtistSerializer) -> None:
         """Create a new artist with proper agency and user assignment."""
-        serializer.save(
-            agency=self.request.user.profile.agency,
-            created_by=self.request.user.profile
-        )
+        try:
+            serializer.save(
+                agency=self.request.user.profile.agency,
+                created_by=self.request.user.profile
+            )
+            # Create social links by default
+            ArtistSocialLinks.objects.create(artist=serializer.instance)
+        except Exception as e:
+            if 'UNIQUE constraint' in str(e) and 'email' in str(e):
+                raise ValidationError({
+                    'email': ['An artist with this email already exists in your agency.']
+                })
+            raise
 
     def perform_update(self, serializer: ArtistSerializer) -> None:
         """Update an existing artist with transaction safety."""
