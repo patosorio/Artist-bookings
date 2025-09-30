@@ -27,6 +27,9 @@ INSTALLED_APPS = [
     'authentication',
     'agencies',
     'artists',
+    'contacts',
+    'promoters',
+    'venues',
 ]
 
 MIDDLEWARE = [

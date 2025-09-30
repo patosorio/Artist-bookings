@@ -1,13 +1,13 @@
 "use client"
 
 import type React from "react"
-import { useAuth } from "@/lib/hooks/useAuth"
+import { useAuthContext } from "@/components/providers/AuthProvider"
 import { Sidebar } from "./sidebar"
 import { Header } from "./header"
 import { Loader2 } from "lucide-react"
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { userProfile, loading } = useAuth()
+  const { userProfile, loading } = useAuthContext()
 
   if (loading) {
     return (

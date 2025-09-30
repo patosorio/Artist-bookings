@@ -2,70 +2,26 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { useAuth } from "@/lib/hooks/useAuth"
 import { Settings, Building, Clock, Upload } from "lucide-react"
-import { agencyApi } from "@/lib/api/agency-api"
-import { useRouter } from "next/navigation"
+import { useAgencySettings } from "@/lib/hooks/useAgencySettings"
 
 export default function SettingsPage() {
-  const { userProfile } = useAuth()
-  const router = useRouter()
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [agencySettings, setAgencySettings] = useState({
-    name: "",
-    timezone: "",
-    logo: null as string | null,
-  })
+  const {
+    agencySettings,
+    loading,
+    saving,
+    hasAccess,
+    setAgencySettings,
+    handleSaveSettings
+  } = useAgencySettings()
 
-  // Redirect if not manager
-  useEffect(() => {
-    if (!userProfile) {
-      // User data is still loading
-      return
-    }
-    
-    if (userProfile.role !== "agency_owner" && userProfile.role !== "agency_manager") {
-      router.push("/dashboard")
-      return
-    }
-  }, [userProfile, router])
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const settings = await agencyApi.fetchAgencySettings()
-        setAgencySettings(settings)
-      } catch (error) {
-        console.error("Failed to load settings:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadSettings()
-  }, [])
-
-  const handleSaveSettings = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      await agencyApi.updateAgencySettings(agencySettings)
-      // Show success message
-    } catch (error) {
-      console.error("Failed to save settings:", error)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (userProfile?.role !== "agency_owner" && userProfile?.role !== "agency_manager") {
+  if (!hasAccess) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">

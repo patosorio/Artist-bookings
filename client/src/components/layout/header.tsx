@@ -10,13 +10,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useAuth } from "@/lib/hooks/useAuth"
+import { useAuthContext } from "@/components/providers/AuthProvider"
 import { Plus, User, LogOut } from "lucide-react"
 import Link from "next/link"
 import { useFirebaseAuth } from "@/lib/hooks/useFirebaseAuth"
 
 export function Header() {
-  const { userProfile } = useAuth()
+  const { userProfile } = useAuthContext()
   const { signOut } = useFirebaseAuth()
 
   const userInitials = userProfile?.email
