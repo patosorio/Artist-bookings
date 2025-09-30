@@ -1,67 +1,18 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Calendar, Users, MapPin, DollarSign, TrendingUp, Clock } from "lucide-react"
-import { api, type Booking, type Artist } from "@/lib/mock-data"
+import { TrendingUp, Clock } from "lucide-react"
+import { useDashboardData } from "@/lib/hooks/useDashboardData"
 import Link from "next/link"
 
 export default function DashboardPage() {
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [artists, setArtists] = useState<Artist[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [bookingsData, artistsData] = await Promise.all([api.fetchBookings(), api.fetchArtists()])
-        setBookings(bookingsData)
-        setArtists(artistsData)
-      } catch (error) {
-        console.error("Failed to load dashboard data:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadData()
-  }, [])
-
-  const upcomingBookings = bookings.filter((b) => new Date(b.date) > new Date())
-  const totalRevenue = bookings.reduce((sum, b) => sum + b.fee, 0)
-  const activeArtists = artists.filter((a) => a.status === "active").length
-
-  const stats = [
-    {
-      title: "Total Artists",
-      value: artists.length.toString(),
-      description: `${activeArtists} active`,
-      icon: Users,
-      color: "text-blue-600",
-    },
-    {
-      title: "Upcoming Bookings",
-      value: upcomingBookings.length.toString(),
-      description: "Next 30 days",
-      icon: Calendar,
-      color: "text-green-600",
-    },
-    {
-      title: "Total Revenue",
-      value: `$${totalRevenue.toLocaleString()}`,
-      description: "This year",
-      icon: DollarSign,
-      color: "text-yellow-600",
-    },
-    {
-      title: "Active Venues",
-      value: "12",
-      description: "3 new this month",
-      icon: MapPin,
-      color: "text-purple-600",
-    },
-  ]
+  const {
+    loading,
+    upcomingBookings,
+    stats
+  } = useDashboardData()
 
   if (loading) {
     return <div>Loading dashboard...</div>

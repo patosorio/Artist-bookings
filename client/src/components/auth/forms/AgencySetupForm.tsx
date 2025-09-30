@@ -1,126 +1,28 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
-import { authApi } from "@/lib/api/auth-api"
-import { useAuthContext } from "@/components/auth/providers/AuthProvider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CountrySelect } from "@/components/ui/country-select"
-import { CreateAgencyDto, BusinessDetailsField } from "@/types/agency"
 import { timezones, TimezoneOption } from "@/lib/utils/constants"
-
-type Step = "basic" | "business"
+import { useAgencySetup } from "@/lib/hooks/useAgencySetup"
 
 export function AgencySetupForm() {
-  const router = useRouter()
-  const { firebaseUser, refreshUserProfile } = useAuthContext()
-  const [currentStep, setCurrentStep] = useState<Step>("basic")
-
-  const [formData, setFormData] = useState<CreateAgencyDto>({
-    name: "",
-    country: "",
-    timezone: "",
-    website: "",
-    contact_email: "",
-    phone_number: "",
-    business_details: {
-      company_name: "",
-      tax_number: "",
-      address: "",
-      town: "",
-      city: "",
-      country: ""
-    }
-  })
-
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-
-  const handleInputChange = (field: keyof CreateAgencyDto, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }))
-  }
-
-  const handleBusinessDetailsChange = (field: BusinessDetailsField, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      business_details: {
-        ...prev.business_details,
-        [field]: value
-      }
-    }))
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
-
-    try {
-      const agency = await authApi.createAgency(formData)
-      // Refresh user profile to get updated agency data and wait for it
-      await refreshUserProfile()
-      // Double check that we have the agency data
-      if (agency?.id) {
-        router.push("/dashboard")
-      } else {
-        setError("Agency created but profile refresh failed. Please try again.")
-      }
-    } catch (err: any) {
-      console.error("Agency setup failed:", err)
-      const errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message || "Failed to create agency. Please try again."
-      setError(errorMessage)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleNext = () => {
-    if (!formData.name || !formData.country || !formData.timezone) {
-      setError("Please fill in all required fields")
-      return
-    }
-    setCurrentStep("business")
-    setError("")
-  }
-
-  const handleSetupLater = async () => {
-    setLoading(true)
-    setError("")
-
-    try {
-      // Create agency with basic info only
-      const basicInfo = {
-        name: formData.name,
-        country: formData.country,
-        timezone: formData.timezone,
-        website: formData.website,
-        contact_email: formData.contact_email,
-        phone_number: formData.phone_number
-      }
-      const agency = await authApi.createAgency(basicInfo)
-      // Refresh user profile to get updated agency data and wait for it
-      await refreshUserProfile()
-      // Double check that we have the agency data
-      if (agency?.id) {
-        router.push("/dashboard")
-      } else {
-        setError("Agency created but profile refresh failed. Please try again.")
-      }
-    } catch (err: any) {
-      console.error("Agency setup failed:", err)
-      const errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message || "Failed to create agency. Please try again."
-      setError(errorMessage)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const {
+    formData,
+    currentStep,
+    loading,
+    error,
+    handleInputChange,
+    handleBusinessDetailsChange,
+    handleNext,
+    handleSubmit,
+    handleSetupLater,
+    setCurrentStep,
+    setError
+  } = useAgencySetup()
 
   if (currentStep === "basic") {
     return (

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuthContext } from "@/components/auth/providers/AuthProvider"
+import { useAuthContext } from "@/components/providers/AuthProvider"
 
 export default function HomePage() {
   const { firebaseUser, userProfile, loading } = useAuthContext()

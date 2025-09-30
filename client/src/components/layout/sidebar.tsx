@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useAuth } from "@/lib/hooks/useAuth"
+import { useAuthContext } from "@/components/providers/AuthProvider"
 import {
   Calendar,
   Users,
@@ -43,7 +43,7 @@ const managerNavigation = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
-  const { userProfile, agency } = useAuth()
+  const { userProfile, agency } = useAuthContext()
 
   const isManager = userProfile?.role === "agency_owner" || userProfile?.role === "agency_manager"
 

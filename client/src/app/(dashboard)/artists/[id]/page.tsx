@@ -1,13 +1,10 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import React from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Edit, Plus } from "lucide-react"
-import { artists } from "@/lib/api/artist-api"
-import type { Artist, ArtistNote, ArtistStats, UpdateArtistData, ArtistMember, ArtistMemberFormData } from "@/types/artists"
-import { toast } from "sonner"
 import {
   StatsCards,
   ArtistInfoCard,
@@ -16,178 +13,113 @@ import {
   EditArtistDialog,
   Documents,
   MembersInformation,
-} from "@/components/artists/[id]/ArtistIndividualViewCards"
-
-// Placeholder data until we implement bookings functionality
-const PLACEHOLDER_STATS: ArtistStats = {
-  totalBookings: 0,
-  totalRevenue: 0,
-  upcomingBookingsCount: 0,
-  completedBookingsCount: 0,
-  averageFee: 0,
-}
+} from "@/components/artists/[id]/artistIndividualViewCards"
+import { useArtistDetail } from "@/lib/hooks/useArtistDetail"
+import { useArtistNotes } from "@/lib/hooks/useArtistNotes"
+import { useArtistMembers } from "@/lib/hooks/useArtistMembers"
+import { useArtistEdit } from "@/lib/hooks/useArtistEdit"
 
 export default function ArtistDetailPage() {
   const params = useParams()
   const router = useRouter()
   const artistId = params.id as string
 
-  const [artist, setArtist] = useState<Artist | null>(null)
-  const [stats, setStats] = useState<ArtistStats>(PLACEHOLDER_STATS)
-  const [loading, setLoading] = useState(true)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editData, setEditData] = useState<UpdateArtistData>({
-    artist_name: "",
-    artist_type: "OTHER",
-    email: "",
-    phone: "",
-    bio: "",
-    status: "active",
-  })
+  // Artist data and stats
+  const { artist, stats, loading, updateArtistInState } = useArtistDetail(artistId)
 
-  const [isAddNoteDialogOpen, setIsAddNoteDialogOpen] = useState(false)
-  const [newNote, setNewNote] = useState<{
-    content: string
-    color: "yellow" | "blue" | "green" | "pink" | "purple"
-  }>({
-    content: "",
-    color: "yellow",
-  })
-  const [editingNote, setEditingNote] = useState<ArtistNote | null>(null)
+  // Notes management
+  const {
+    isAddNoteDialogOpen,
+    setIsAddNoteDialogOpen,
+    newNote,
+    setNewNote,
+    editingNote,
+    setEditingNote,
+    handleAddNote,
+    handleUpdateNote,
+    handleDeleteNote
+  } = useArtistNotes()
 
-  // Member Management
-  const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false)
-  const [editingMember, setEditingMember] = useState<ArtistMember | null>(null)
+  // Members management
+  const {
+    isMemberDialogOpen,
+    setIsMemberDialogOpen,
+    editingMember,
+    setEditingMember,
+    handleAddMember,
+    handleUpdateMember,
+    handleDeleteMember
+  } = useArtistMembers()
 
-  useEffect(() => {
-    loadArtistData()
-  }, [artistId])
+  // Edit artist form
+  const {
+    isEditDialogOpen,
+    setIsEditDialogOpen,
+    editData,
+    setEditData,
+    initializeEditData,
+    handleUpdateArtist
+  } = useArtistEdit()
 
-  const loadArtistData = async () => {
-    try {
-      const artistData = await artists.fetchArtist(artistId)
-      setArtist(artistData)
-      setEditData({
-        artist_name: artistData.artist_name,
-        artist_type: artistData.artist_type,
-        email: artistData.email,
-        phone: artistData.phone,
-        bio: artistData.bio,
-        status: artistData.status,
+  // Initialize edit data when artist loads
+  React.useEffect(() => {
+    if (artist) {
+      initializeEditData(artist)
+    }
+  }, [artist])
+
+  // State update callbacks for hooks
+  const handleNoteAdded = (note: any) => {
+    if (artist) {
+      updateArtistInState({
+        ...artist,
+        notes: [note, ...(artist.notes || [])]
       })
-
-      // In the future, we'll fetch real stats from the bookings API
-      setStats(PLACEHOLDER_STATS)
-    } catch (error) {
-      console.error("Failed to load artist data:", error)
-      toast.error("Failed to load artist data. Please try again.")
-      router.push("/artists")
-    } finally {
-      setLoading(false)
     }
   }
 
-  const handleUpdateArtist = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      const updated = await artists.update(artistId, editData)
-      setArtist(updated)
-      setIsEditDialogOpen(false)
-      toast.success("Artist updated successfully!")
-    } catch (error) {
-      console.error("Failed to update artist:", error)
-      toast.error("Failed to update artist. Please try again.")
-    }
-  }
-
-  const handleAddNote = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      const note = await artists.addNote(artistId, {
-        content: newNote.content,
-        color: newNote.color,
+  const handleNoteUpdated = (updatedNote: any) => {
+    if (artist) {
+      updateArtistInState({
+        ...artist,
+        notes: artist.notes.map((note) => (note.id === updatedNote.id ? updatedNote : note))
       })
-      setArtist((prev) => prev ? {
-        ...prev,
-        notes: [note, ...(prev.notes || [])]
-      } : null)
-      setIsAddNoteDialogOpen(false)
-      setNewNote({ content: "", color: "yellow" })
-      toast.success("Note added successfully!")
-    } catch (error: any) {
-      console.error("Failed to add note:", error)
-      toast.error("Failed to add note. Please try again.")
     }
   }
 
-  const handleUpdateNote = async (noteId: string, content: string) => {
-    try {
-      const updated = await artists.updateNote(artistId, noteId, { content })
-      setArtist((prev) => prev ? {
-        ...prev,
-        notes: prev.notes.map((note) => (note.id === noteId ? updated : note))
-      } : null)
-      setEditingNote(null)
-      toast.success("Note updated successfully!")
-    } catch (error) {
-      console.error("Failed to update note:", error)
-      toast.error("Failed to update note. Please try again.")
+  const handleNoteDeleted = (noteId: string) => {
+    if (artist) {
+      updateArtistInState({
+        ...artist,
+        notes: artist.notes.filter((note) => note.id !== noteId)
+      })
     }
   }
 
-  const handleDeleteNote = async (noteId: string) => {
-    try {
-      await artists.deleteNote(artistId, noteId)
-      setArtist((prev) => prev ? {
-        ...prev,
-        notes: prev.notes.filter((note) => note.id !== noteId)
-      } : null)
-      toast.success("Note deleted successfully!")
-    } catch (error) {
-      console.error("Failed to delete note:", error)
-      toast.error("Failed to delete note. Please try again.")
+  const handleMemberAdded = (member: any) => {
+    if (artist) {
+      updateArtistInState({
+        ...artist,
+        members: [...(artist.members || []), member]
+      })
     }
   }
 
-  const handleAddMember = async (data: ArtistMemberFormData) => {
-    try {
-      const member = await artists.addMember(artistId, data)
-      setArtist((prev) => prev ? {
-        ...prev,
-        members: [...(prev.members || []), member]
-      } : null)
-      toast.success("Member added successfully!")
-    } catch (error) {
-      console.error("Failed to add member:", error)
-      toast.error("Failed to add member. Please try again.")
+  const handleMemberUpdated = (updatedMember: any) => {
+    if (artist) {
+      updateArtistInState({
+        ...artist,
+        members: artist.members.map((member) => (member.id === updatedMember.id ? updatedMember : member))
+      })
     }
   }
 
-  const handleUpdateMember = async (memberId: string, data: ArtistMemberFormData) => {
-    try {
-      const updated = await artists.updateMember(artistId, memberId, data)
-      setArtist((prev) => prev ? {
-        ...prev,
-        members: prev.members.map((member) => (member.id === memberId ? updated : member))
-      } : null)
-      toast.success("Member updated successfully!")
-    } catch (error) {
-      console.error("Failed to update member:", error)
-      toast.error("Failed to update member. Please try again.")
-    }
-  }
-
-  const handleDeleteMember = async (memberId: string) => {
-    try {
-      await artists.deleteMember(artistId, memberId)
-      setArtist((prev) => prev ? {
-        ...prev,
-        members: prev.members.filter((member) => member.id !== memberId)
-      } : null)
-      toast.success("Member deleted successfully!")
-    } catch (error) {
-      console.error("Failed to delete member:", error)
-      toast.error("Failed to delete member. Please try again.")
+  const handleMemberDeleted = (memberId: string) => {
+    if (artist) {
+      updateArtistInState({
+        ...artist,
+        members: artist.members.filter((member) => member.id !== memberId)
+      })
     }
   }
 
@@ -241,9 +173,9 @@ export default function ArtistDetailPage() {
         <BookingsTabs stats={stats} />
         <MembersInformation 
           artist={artist}
-          onAddMember={handleAddMember}
-          onUpdateMember={handleUpdateMember}
-          onDeleteMember={handleDeleteMember}
+          onAddMember={(data) => handleAddMember(data, artistId, handleMemberAdded)}
+          onUpdateMember={(memberId, data) => handleUpdateMember(memberId, data, artistId, handleMemberUpdated)}
+          onDeleteMember={(memberId) => handleDeleteMember(memberId, artistId, () => handleMemberDeleted(memberId))}
           isMemberDialogOpen={isMemberDialogOpen}
           setIsMemberDialogOpen={setIsMemberDialogOpen}
           editingMember={editingMember}
@@ -256,9 +188,9 @@ export default function ArtistDetailPage() {
         <Documents />
         <NotesSection
           artist={artist}
-          onAddNote={handleAddNote}
-          onUpdateNote={handleUpdateNote}
-          onDeleteNote={handleDeleteNote}
+          onAddNote={(e) => handleAddNote(e, artistId, handleNoteAdded)}
+          onUpdateNote={(noteId, content) => handleUpdateNote(noteId, content, artistId, handleNoteUpdated)}
+          onDeleteNote={(noteId) => handleDeleteNote(noteId, artistId, () => handleNoteDeleted(noteId))}
           isAddNoteDialogOpen={isAddNoteDialogOpen}
           setIsAddNoteDialogOpen={setIsAddNoteDialogOpen}
           newNote={newNote}
@@ -274,7 +206,7 @@ export default function ArtistDetailPage() {
         onOpenChange={setIsEditDialogOpen}
         editData={editData}
         setEditData={setEditData}
-        onSubmit={handleUpdateArtist}
+        onSubmit={(e) => handleUpdateArtist(e, artistId, updateArtistInState)}
       />
     </div>
   )

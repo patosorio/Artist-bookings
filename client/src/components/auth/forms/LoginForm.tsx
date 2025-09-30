@@ -1,35 +1,21 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Loader2 } from "lucide-react"
-import { authService } from "@/lib/auth/auth-service"
+import { useLogin } from "@/lib/hooks/useLogin"
 
 export function LoginForm() {
-  const router = useRouter()
-
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError("")
-
-    try {
-      await authService.signIn(email, password)
-      router.push("/dashboard")
-    } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.")
-    } finally {
-      setLoading(false)
-    }
-  }
+  const {
+    email,
+    password,
+    loading,
+    error,
+    setEmail,
+    setPassword,
+    handleLogin
+  } = useLogin()
 
   return (
     <form onSubmit={handleLogin} className="space-y-4">

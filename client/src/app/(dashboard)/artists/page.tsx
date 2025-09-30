@@ -11,16 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Search, Users } from "lucide-react"
 import { artists } from "@/lib/api/artist-api"
 import type { Artist, CreateArtistData, UpdateArtistData } from "@/types/artists"
-import { useAuth } from "@/lib/hooks/useAuth"
+import { useAuthContext } from "@/components/providers/AuthProvider"
+import { useArtistsContext } from "@/components/providers/ArtistsProvider"
 import { useRouter } from "next/navigation"
 import { ArtistGrid } from "@/components/artists/artistCards"
 import { toast } from "sonner"
 
 export default function ArtistsPage() {
-  const { firebaseUser: user } = useAuth()
+  const { firebaseUser: user } = useAuthContext()
+  const { artists: artistsList, loading, refreshArtists } = useArtistsContext()
   const router = useRouter()
-  const [artistsList, setArtistsList] = useState<Artist[]>([])
-  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -38,22 +38,7 @@ export default function ArtistsPage() {
   }
   const [newArtist, setNewArtist] = useState<CreateArtistData>(defaultArtistData)
 
-  useEffect(() => {
-      loadArtists()
-  }, [])
 
-  const loadArtists = async () => {
-    try {
-      setLoading(true)
-      const data = await artists.fetchArtists()
-      setArtistsList(data)
-    } catch (error: any) {
-      console.error("Failed to load artists:", error)
-      toast.error("Failed to load artists. Please try again.")
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const [formErrors, setFormErrors] = useState<Record<string, string[]>>({})
 
@@ -62,7 +47,7 @@ export default function ArtistsPage() {
     setFormErrors({})
     try {
       const created = await artists.create(newArtist)
-      setArtistsList((prev) => [...prev, created])
+      await refreshArtists() // Refresh the shared artists data
       setIsCreateDialogOpen(false)
       setNewArtist({
         artist_name: "",
@@ -117,7 +102,7 @@ export default function ArtistsPage() {
         is_active: editingArtist.is_active
       }
       const updated = await artists.update(editingArtist.id, updateData)
-      setArtistsList((prev) => prev.map((a) => a.id === updated.id ? updated : a))
+      await refreshArtists() // Refresh the shared artists data
       setIsEditDialogOpen(false)
       setEditingArtist(null)
       toast.success("Artist updated successfully!")
@@ -470,8 +455,8 @@ export default function ArtistsPage() {
             <ArtistGrid 
               artists={filteredArtists} 
               onEdit={handleEditArtist}
-              onDelete={(artist) => {
-                setArtistsList((prev) => prev.filter((a) => a.id !== artist.id))
+              onDelete={async (artist) => {
+                await refreshArtists() // Refresh the shared artists data
               }}
             />
           )}

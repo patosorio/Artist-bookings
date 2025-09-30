@@ -2,7 +2,6 @@
 
 import type React from "react"
 
-import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -17,103 +16,32 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useAuth } from "@/lib/hooks/useAuth"
-import { Shield, Users, Settings, Activity, DollarSign, UserPlus, Trash2 } from "lucide-react"
-import { agencyApi } from "@/lib/api/agency-api"
-import { useRouter } from "next/navigation"
-import { AgencyUser } from "@/types/agency"
+import { Shield, Users, Activity, DollarSign, UserPlus, Trash2 } from "lucide-react"
+import { useAdminPanel } from "@/lib/hooks/useAdminPanel"
+import { useUserInvitations } from "@/lib/hooks/useUserInvitations"
 
 export default function AdminPage() {
-  const { userProfile } = useAuth()
-  const router = useRouter()
-  const [users, setUsers] = useState<AgencyUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
-  const [inviteData, setInviteData] = useState({
-    email: "",
-    role: "agency_agent" as const,
-  })
-  const [inviteSuccess, setInviteSuccess] = useState<{
-    show: boolean;
-    url?: string;
-  }>({ show: false })
+  const {
+    users,
+    loading,
+    hasAccess,
+    handleRoleChange,
+    handleRemoveUser,
+    refreshUsers,
+    stats
+  } = useAdminPanel()
 
-  // Redirect if not manager or owner
-  useEffect(() => {
-    if (!userProfile) {
-      // User data is still loading
-      return
-    }
-    
-    if (userProfile.role !== "agency_owner" && userProfile.role !== "agency_manager") {
-      router.push("/dashboard")
-      return
-    }
-  }, [userProfile, router])
+  const {
+    isInviteDialogOpen,
+    setIsInviteDialogOpen,
+    inviteData,
+    setInviteData,
+    inviteSuccess,
+    setInviteSuccess,
+    handleInviteUser
+  } = useUserInvitations()
 
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
-        console.log("Fetching users...");
-        const usersData = await agencyApi.fetchAgencyUsers();
-        console.log("Users data:", usersData);
-        setUsers(usersData);
-      } catch (error) {
-        console.error("Failed to load users:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUsers();
-  }, []);
-
-  const handleInviteUser = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      console.log("Sending invite:", inviteData);
-      const response = await agencyApi.sendInvite(inviteData.email, inviteData.role)
-      console.log("Invite response:", response);
-      
-      setIsInviteDialogOpen(false)
-      setInviteData({ email: "", role: "agency_agent" })
-      
-      // Show success dialog with invitation URL
-      setInviteSuccess({
-        show: true,
-        url: response.invitation_url
-      })
-      
-      // Refresh users list
-      const usersData = await agencyApi.fetchAgencyUsers()
-      setUsers(usersData)
-      
-      console.log("User invited successfully")
-    } catch (error: any) {
-      console.error("Failed to send invite:", error)
-      const errorMessage = error.response?.data?.error || error.message || "Failed to send invite"
-      alert(errorMessage)
-    }
-  }
-
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    try {
-      await agencyApi.updateUserRole(userId, newRole)
-      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole as any } : u)))
-    } catch (error) {
-      console.error("Failed to update role:", error)
-    }
-  }
-
-  const handleRemoveUser = async (userId: string) => {
-    try {
-      await agencyApi.removeUser(userId)
-      setUsers((prev) => prev.filter((u) => u.id !== userId))
-    } catch (error) {
-      console.error("Failed to remove user:", error)
-    }
-  }
-
-  if (userProfile?.role !== "agency_owner" && userProfile?.role !== "agency_manager") {
+  if (!hasAccess) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -128,37 +56,6 @@ export default function AdminPage() {
   if (loading) {
     return <div>Loading admin panel...</div>
   }
-
-  const stats = [
-    {
-      title: "Total Users",
-      value: users.length.toString(),
-      description: "Active team members",
-      icon: Users,
-      color: "text-blue-600",
-    },
-    {
-      title: "Monthly Revenue",
-      value: "$125,000",
-      description: "+12% from last month",
-      icon: DollarSign,
-      color: "text-green-600",
-    },
-    {
-      title: "Active Bookings",
-      value: "23",
-      description: "This month",
-      icon: Activity,
-      color: "text-purple-600",
-    },
-    {
-      title: "System Health",
-      value: "99.9%",
-      description: "Uptime",
-      icon: Settings,
-      color: "text-orange-600",
-    },
-  ]
 
   return (
     <div className="space-y-6">
@@ -214,7 +111,7 @@ export default function AdminPage() {
                       Send an invitation to a new team member to join your agency.
                     </DialogDescription>
                   </DialogHeader>
-                  <form onSubmit={handleInviteUser} className="space-y-4">
+                  <form onSubmit={(e) => handleInviteUser(e, refreshUsers)} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
                       <Input
