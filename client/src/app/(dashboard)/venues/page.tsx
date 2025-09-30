@@ -5,18 +5,31 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Plus, Building2 } from "lucide-react"
-import { useVenuesContext } from "@/components/providers/VenuesProvider"
+import { 
+  useVenues,
+  useCreateVenue, 
+  useUpdateVenue, 
+  useDeleteVenue, 
+  useToggleVenueStatus, 
+  useDuplicateVenue 
+} from "@/lib/hooks/queries/useVenuesQueries"
 import { VenuesTable } from "@/components/venues/venuesTable"
 import { VenueForm } from "@/components/venues/forms/VenueForm"
 import type { Venue, CreateVenueData, UpdateVenueData } from "@/types/venues"
-import { toast } from "sonner"
 
 export default function VenuesPage() {
-  const { venues: venuesList, loading, refreshVenues } = useVenuesContext()
+  // TanStack Query hooks
+  const { data: venuesList = [], isLoading } = useVenues()
+  const createVenueMutation = useCreateVenue()
+  const updateVenueMutation = useUpdateVenue()
+  const deleteVenueMutation = useDeleteVenue()
+  const toggleStatusMutation = useToggleVenueStatus()
+  const duplicateVenueMutation = useDuplicateVenue()
+
+  // UI state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingVenue, setEditingVenue] = useState<Venue | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const defaultVenueData: CreateVenueData = {
     venue_name: "",
@@ -47,29 +60,16 @@ export default function VenuesPage() {
   }
 
   const handleCreateVenue = async (data: CreateVenueData) => {
-    setIsSubmitting(true)
+    console.log("VenuesPage: handleCreateVenue called", data)
     try {
-      const { venues } = await import("@/lib/api/venue-api")
-      await venues.create(data)
-      await refreshVenues()
+      console.log("VenuesPage: Calling createVenueMutation.mutateAsync...")
+      await createVenueMutation.mutateAsync(data)
+      console.log("VenuesPage: Mutation succeeded, closing dialog")
       setIsCreateDialogOpen(false)
-      toast.success("Venue created successfully!")
-    } catch (error: any) {
-      console.error("Failed to create venue:", error)
-      const fieldErrors = error.response?.data
-      if (fieldErrors && typeof fieldErrors === 'object') {
-        const firstError = Object.values(fieldErrors)[0]
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          toast.error(firstError[0])
-        } else {
-          toast.error("Failed to create venue")
-        }
-      } else {
-        toast.error("Failed to create venue")
-      }
-      throw error // Re-throw to let the form handle it
-    } finally {
-      setIsSubmitting(false)
+    } catch (error) {
+      console.error("VenuesPage: Error in handleCreateVenue:", error)
+      // Error handling is done in the mutation hook
+      throw error // Re-throw to let the form handle field errors
     }
   }
 
@@ -81,70 +81,29 @@ export default function VenuesPage() {
   const handleUpdateVenue = async (data: UpdateVenueData) => {
     if (!editingVenue) return
 
-    setIsSubmitting(true)
     try {
-      const { venues } = await import("@/lib/api/venue-api")
-      await venues.update(editingVenue.id, data)
-      await refreshVenues()
+      await updateVenueMutation.mutateAsync({ id: editingVenue.id, data })
       setIsEditDialogOpen(false)
       setEditingVenue(null)
-      toast.success("Venue updated successfully!")
-    } catch (error: any) {
-      console.error("Failed to update venue:", error)
-      const fieldErrors = error.response?.data
-      if (fieldErrors && typeof fieldErrors === 'object') {
-        const firstError = Object.values(fieldErrors)[0]
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          toast.error(firstError[0])
-        } else {
-          toast.error("Failed to update venue")
-        }
-      } else {
-        toast.error("Failed to update venue")
-      }
-      throw error // Re-throw to let the form handle it
-    } finally {
-      setIsSubmitting(false)
+    } catch (error) {
+      // Error handling is done in the mutation hook
+      throw error // Re-throw to let the form handle field errors
     }
   }
 
-  const handleDeleteVenue = async (venue: Venue) => {
-    try {
-      const { venues } = await import("@/lib/api/venue-api")
-      await venues.delete(venue.id)
-      await refreshVenues()
-      toast.success("Venue deleted successfully!")
-    } catch (error: any) {
-      console.error("Failed to delete venue:", error)
-      toast.error("Failed to delete venue")
-    }
+  const handleDeleteVenue = (venue: Venue) => {
+    deleteVenueMutation.mutate(venue.id)
   }
 
-  const handleToggleStatus = async (venue: Venue) => {
-    try {
-      const { venues } = await import("@/lib/api/venue-api")
-      await venues.toggleStatus(venue.id)
-      await refreshVenues()
-      toast.success(`Venue ${venue.is_active ? 'deactivated' : 'activated'} successfully!`)
-    } catch (error: any) {
-      console.error("Failed to toggle venue status:", error)
-      toast.error("Failed to update venue status")
-    }
+  const handleToggleStatus = (venue: Venue) => {
+    toggleStatusMutation.mutate(venue.id)
   }
 
-  const handleDuplicateVenue = async (venue: Venue) => {
-    try {
-      const { venues } = await import("@/lib/api/venue-api")
-      await venues.duplicate(venue.id, " (Copy)")
-      await refreshVenues()
-      toast.success("Venue duplicated successfully!")
-    } catch (error: any) {
-      console.error("Failed to duplicate venue:", error)
-      toast.error("Failed to duplicate venue")
-    }
+  const handleDuplicateVenue = (venue: Venue) => {
+    duplicateVenueMutation.mutate({ id: venue.id, suffix: " (Copy)" })
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <div className="text-center space-y-4">
@@ -180,7 +139,7 @@ export default function VenuesPage() {
               initialData={defaultVenueData}
               onSubmit={handleCreateVenue}
               onCancel={() => setIsCreateDialogOpen(false)}
-              isLoading={isSubmitting}
+              isLoading={createVenueMutation.isPending}
               submitLabel="Create Venue"
             />
           </DialogContent>
@@ -203,7 +162,7 @@ export default function VenuesPage() {
                   setIsEditDialogOpen(false)
                   setEditingVenue(null)
                 }}
-                isLoading={isSubmitting}
+                isLoading={updateVenueMutation.isPending}
                 submitLabel="Update Venue"
               />
             )}

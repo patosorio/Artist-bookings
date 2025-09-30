@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Eye, Edit, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { artists } from "@/lib/api/artist-api"
+import { artistKeys } from "@/lib/queries/queryKeys"
 import { toast } from "sonner"
 import Link from "next/link"
 import type { Artist } from "@/types/artists"
@@ -16,8 +18,17 @@ interface ArtistCardProps {
 }
 
 export function ArtistCard({ artist, onEdit, onDelete }: ArtistCardProps) {
+  const queryClient = useQueryClient()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Prefetch artist detail on hover for faster navigation
+  const prefetchArtist = () => {
+    queryClient.prefetchQuery({
+      queryKey: artistKeys.detail(artist.id),
+      queryFn: () => artists.fetchArtist(artist.id),
+    })
+  }
 
   const handleDelete = async () => {
     try {
@@ -65,7 +76,11 @@ export function ArtistCard({ artist, onEdit, onDelete }: ArtistCardProps) {
           </div>
         </div>
         <div className="flex space-x-2 mt-4">
-          <Link href={`/artists/${artist.id}`} className="flex-1">
+          <Link 
+            href={`/artists/${artist.id}`} 
+            className="flex-1"
+            onMouseEnter={prefetchArtist}
+          >
             <Button variant="outline" size="sm" className="w-full">
               <Eye className="h-4 w-4 mr-2" />
               View

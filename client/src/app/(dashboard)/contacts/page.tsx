@@ -8,14 +8,20 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Users, Phone, Mail, MapPin, Building2 } from "lucide-react"
-import { useContactsContext } from "@/components/providers/ContactsProvider"
-import { usePromotersContext } from "@/components/providers/PromotersProvider"
-import { useVenuesContext } from "@/components/providers/VenuesProvider"
+import {
+  useContacts,
+  useCreateContact,
+  useUpdateContact,
+  useDeleteContact,
+  useToggleContactStatus,
+  useDuplicateContact
+} from "@/lib/hooks/queries/useContactsQueries"
+import { usePromoters } from "@/lib/hooks/queries/usePromotersQueries"
+import { useVenues } from "@/lib/hooks/queries/useVenuesQueries"
 import { ContactsTable } from "@/components/contacts/contactsTable"
 import type { Contact, CreateContactData, UpdateContactData } from "@/types/contacts"
 import type { Promoter } from "@/types/promoters"
 import type { Venue } from "@/types/venues"
-import { toast } from "sonner"
 
 const contactTypes = [
   { value: "manager", label: "Manager" },
@@ -63,17 +69,19 @@ interface ContactFilters {
 }
 
 export default function ContactsPage() {
-  const { contacts: contactsList, loading, refreshContacts } = useContactsContext()
-  const { promoters: promotersList } = usePromotersContext()
-  const { venues: venuesList } = useVenuesContext()
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [currentFilters, setCurrentFilters] = useState<ContactFilters>({})
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  // TanStack Query hooks
+  const { data: contactsList = [], isLoading: contactsLoading } = useContacts()
+  const { data: promotersList = [] } = usePromoters()
+  const { data: venuesList = [] } = useVenues()
+  const createContactMutation = useCreateContact()
+  const updateContactMutation = useUpdateContact()
+  const deleteContactMutation = useDeleteContact()
+  const toggleStatusMutation = useToggleContactStatus()
+  const duplicateContactMutation = useDuplicateContact()
 
-  const handleFiltersChange = React.useCallback(async (filters: ContactFilters) => {
-    setCurrentFilters(filters)
-    await refreshContacts(filters)
-  }, [refreshContacts])
+  // UI state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
   const defaultContactData: CreateContactData = {
     contact_name: "",
@@ -104,9 +112,7 @@ export default function ContactsPage() {
     e.preventDefault()
     setFormErrors({})
     try {
-      const { contacts } = await import("@/lib/api/contact-api")
-      
-      // Clean up the data before sending - remove null/undefined values for optional fields
+      // Clean up the data before sending
       const cleanedData = { ...newContact }
       
       // Handle reference-specific fields
@@ -115,10 +121,8 @@ export default function ContactsPage() {
         delete cleanedData.venue_id
       } else if (cleanedData.reference_type === 'promoter') {
         delete cleanedData.venue_id
-        // promoter_id should be set from the form selection
       } else if (cleanedData.reference_type === 'venue') {
         delete cleanedData.promoter_id
-        // venue_id should be set from the form selection
       }
       
       // Remove empty string values for optional fields
@@ -128,26 +132,14 @@ export default function ContactsPage() {
         }
       })
       
-      const created = await contacts.create(cleanedData)
-      await refreshContacts(currentFilters)
+      await createContactMutation.mutateAsync(cleanedData)
       setIsCreateDialogOpen(false)
       setNewContact(defaultContactData)
-      toast.success("Contact created successfully!")
     } catch (error: any) {
-      console.error("Failed to create contact:", error)
-      console.error("Error response data:", error.response?.data)
-      console.error("Request data being sent:", newContact)
+      // Field errors for form display
       const fieldErrors = error.response?.data
       if (fieldErrors && typeof fieldErrors === 'object') {
         setFormErrors(fieldErrors)
-        const firstError = Object.values(fieldErrors)[0]
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          toast.error(firstError[0])
-        } else {
-          toast.error("Failed to create contact")
-        }
-      } else {
-        toast.error("Failed to create contact")
       }
     }
   }
@@ -163,7 +155,6 @@ export default function ContactsPage() {
 
     setFormErrors({})
     try {
-      const { contacts } = await import("@/lib/api/contact-api")
       // Clean up the data before sending
       const cleanedUpdateData: UpdateContactData = {
         contact_name: editingContact.contact_name,
@@ -203,29 +194,32 @@ export default function ContactsPage() {
           delete cleanedUpdateData[key as keyof typeof cleanedUpdateData]
         }
       })
-      const updated = await contacts.update(editingContact.id, cleanedUpdateData)
-      await refreshContacts(currentFilters)
+      
+      await updateContactMutation.mutateAsync({ id: editingContact.id, data: cleanedUpdateData })
       setIsEditDialogOpen(false)
       setEditingContact(null)
-      toast.success("Contact updated successfully!")
     } catch (error: any) {
-      console.error("Failed to update contact:", error)
+      // Field errors for form display
       const fieldErrors = error.response?.data
       if (fieldErrors && typeof fieldErrors === 'object') {
         setFormErrors(fieldErrors)
-        const firstError = Object.values(fieldErrors)[0]
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          toast.error(firstError[0])
-        } else {
-          toast.error("Failed to update contact")
-        }
-      } else {
-        toast.error("Failed to update contact")
       }
     }
   }
 
-  if (loading) {
+  const handleDeleteContact = (contact: Contact) => {
+    deleteContactMutation.mutate(contact.id)
+  }
+
+  const handleToggleStatus = (contact: Contact) => {
+    toggleStatusMutation.mutate(contact.id)
+  }
+
+  const handleDuplicateContact = (contact: Contact) => {
+    duplicateContactMutation.mutate({ id: contact.id, suffix: " (Copy)" })
+  }
+
+  if (contactsLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <div className="text-center space-y-4">
@@ -773,16 +767,9 @@ export default function ContactsPage() {
         <ContactsTable 
           contacts={contactsList} 
           onEdit={handleEditContact}
-          onDelete={async (contact) => {
-            await refreshContacts(currentFilters)
-          }}
-          onToggleStatus={async (contact) => {
-            await refreshContacts(currentFilters)
-          }}
-          onDuplicate={async (contact) => {
-            await refreshContacts(currentFilters)
-          }}
-          onFiltersChange={handleFiltersChange}
+          onDelete={handleDeleteContact}
+          onToggleStatus={handleToggleStatus}
+          onDuplicate={handleDuplicateContact}
           promoters={promotersList}
           venues={venuesList}
         />

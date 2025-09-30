@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   Table,
   TableBody,
@@ -31,6 +32,8 @@ import {
   MapPin,
   Users
 } from "lucide-react"
+import { venues as venuesApi } from "@/lib/api/venue-api"
+import { venueKeys } from "@/lib/queries/queryKeys"
 import type { Venue } from "@/types/venues"
 
 interface VenuesTableProps {
@@ -50,10 +53,19 @@ export function VenuesTable({
   onDuplicate,
   onView 
 }: VenuesTableProps) {
+  const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [filterCapacity, setFilterCapacity] = useState<string>("all")
+
+  // Prefetch venue detail on hover for faster navigation
+  const prefetchVenue = (id: string) => {
+    queryClient.prefetchQuery({
+      queryKey: venueKeys.detail(id),
+      queryFn: () => venuesApi.fetchVenue(id),
+    })
+  }
 
   const filteredVenues = venues.filter((venue) => {
     const matchesSearch = 
@@ -185,7 +197,10 @@ export function VenuesTable({
           </TableHeader>
           <TableBody>
             {filteredVenues.map((venue) => (
-              <TableRow key={venue.id}>
+              <TableRow 
+                key={venue.id}
+                onMouseEnter={() => prefetchVenue(venue.id)}
+              >
                 <TableCell className="font-medium">
                   <div className="space-y-1">
                     <div>{venue.venue_name}</div>

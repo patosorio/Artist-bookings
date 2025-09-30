@@ -11,15 +11,6 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 }
 
-// Debug Firebase config in development
-if (process.env.NODE_ENV === 'development') {
-  console.log('Firebase Config:', {
-    apiKey: firebaseConfig.apiKey?.slice(0, 5) + '...',
-    authDomain: firebaseConfig.authDomain,
-    projectId: firebaseConfig.projectId,
-  })
-}
-
 // Check if all required config is present
 const requiredConfig = ['apiKey', 'authDomain', 'projectId'] as const
 for (const key of requiredConfig) {

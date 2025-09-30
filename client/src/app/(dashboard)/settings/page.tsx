@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React, { useState } from "react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,17 +9,46 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Settings, Building, Clock, Upload } from "lucide-react"
-import { useAgencySettings } from "@/lib/hooks/useAgencySettings"
+import { useAuthContext } from "@/components/providers/AuthProvider"
+import {
+  useAgencySettings,
+  useUpdateAgencySettings,
+  AgencySettings,
+} from "@/lib/hooks/queries/useAgencyQueries"
 
 export default function SettingsPage() {
-  const {
-    agencySettings,
-    loading,
-    saving,
-    hasAccess,
-    setAgencySettings,
-    handleSaveSettings
-  } = useAgencySettings()
+  // Check permissions
+  const { userProfile } = useAuthContext()
+  const hasAccess = userProfile?.role === "agency_owner" || userProfile?.role === "agency_manager"
+
+  // Get agency slug from user profile
+  const agencySlug = userProfile?.agency?.slug
+
+  // Fetch settings with TanStack Query
+  const { data: settings, isLoading } = useAgencySettings(agencySlug)
+  
+  // Mutation for updating settings
+  const updateSettingsMutation = useUpdateAgencySettings(agencySlug || '')
+
+  // Local form state
+  const [formData, setFormData] = useState<AgencySettings>({
+    name: "",
+    timezone: "",
+    logo: null,
+  })
+
+  // Initialize form data when settings load
+  React.useEffect(() => {
+    if (settings) {
+      setFormData(settings)
+    }
+  }, [settings])
+
+  // Handle form submission
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await updateSettingsMutation.mutateAsync(formData)
+  }
 
   if (!hasAccess) {
     return (
@@ -33,7 +62,7 @@ export default function SettingsPage() {
     )
   }
 
-  if (loading) {
+  if (isLoading) {
     return <div>Loading settings...</div>
   }
 
@@ -63,8 +92,8 @@ export default function SettingsPage() {
                 <Label htmlFor="agencyName">Agency Name</Label>
                 <Input
                   id="agencyName"
-                  value={agencySettings.name}
-                  onChange={(e) => setAgencySettings((prev) => ({ ...prev, name: e.target.value }))}
+                  value={formData.name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                   placeholder="Your Agency Name"
                 />
               </div>
@@ -72,8 +101,8 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label htmlFor="timezone">Default Timezone</Label>
                 <Select
-                  value={agencySettings.timezone}
-                  onValueChange={(value) => setAgencySettings((prev) => ({ ...prev, timezone: value }))}
+                  value={formData.timezone}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, timezone: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select timezone" />
@@ -93,9 +122,9 @@ export default function SettingsPage() {
                 <Label htmlFor="logo">Agency Logo</Label>
                 <div className="flex items-center space-x-4">
                   <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center">
-                    {agencySettings.logo ? (
+                    {formData.logo ? (
                       <img
-                        src={agencySettings.logo || "/placeholder.svg"}
+                        src={formData.logo || "/placeholder.svg"}
                         alt="Logo"
                         className="w-full h-full object-cover rounded-lg"
                       />
@@ -111,8 +140,8 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground">Recommended: 200x200px, PNG or JPG format</p>
               </div>
 
-              <Button type="submit" disabled={saving}>
-                {saving ? "Saving..." : "Save Changes"}
+              <Button type="submit" disabled={updateSettingsMutation.isPending}>
+                {updateSettingsMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </form>
           </CardContent>

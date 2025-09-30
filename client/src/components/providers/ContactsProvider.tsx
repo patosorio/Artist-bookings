@@ -1,18 +1,9 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
-import { contacts } from "@/lib/api/contact-api"
+import { createContext, useContext, ReactNode } from "react"
+import { useContacts, ContactFilters } from "@/lib/hooks/queries/useContactsQueries"
 import { Contact } from "@/types/contacts"
 import { useAuthContext } from "./AuthProvider"
-
-interface ContactFilters {
-  contact_type?: string
-  reference_type?: string
-  promoter_id?: string
-  venue_id?: string
-  is_active?: boolean
-  search?: string
-}
 
 interface ContactsContextType {
   contacts: Contact[]
@@ -24,39 +15,27 @@ interface ContactsContextType {
 const ContactsContext = createContext<ContactsContextType | undefined>(undefined)
 
 export function ContactsProvider({ children }: { children: ReactNode }) {
-  const [contactsList, setContactsList] = useState<Contact[]>([])
-  const [loading, setLoading] = useState(true)
   const { isAuthenticated, loading: authLoading } = useAuthContext()
+  
+  // Query for contacts list (without filters) - only enabled when authenticated
+  const { 
+    data: contactsList = [], 
+    isLoading: contactsLoading, 
+    refetch 
+  } = useContacts()
 
-  const loadContacts = async (filters?: ContactFilters) => {
-    try {
-      setLoading(true)
-      const data = await contacts.fetchContacts(filters)
-      setContactsList(data)
-    } catch (error) {
-      console.error("Failed to load contacts:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Determine overall loading state
+  const loading = authLoading || (isAuthenticated && contactsLoading)
 
   const refreshContacts = async (filters?: ContactFilters) => {
-    await loadContacts(filters)
+    // Note: This refetch gets all contacts without filters for backwards compatibility
+    // Components needing filtered contacts should use useContacts(filters) directly
+    await refetch()
   }
 
   const getContactById = (id: string) => {
     return contactsList.find(contact => contact.id === id)
   }
-
-  useEffect(() => {
-    // Only load contacts when user is authenticated and auth is not loading
-    if (isAuthenticated && !authLoading) {
-      loadContacts()
-    } else if (!authLoading) {
-      // If not authenticated and auth is done loading, set loading to false
-      setLoading(false)
-    }
-  }, [isAuthenticated, authLoading])
 
   return (
     <ContactsContext.Provider 
