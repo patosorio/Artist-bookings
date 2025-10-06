@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,116 +14,87 @@ import {
   Documents,
   MembersInformation,
 } from "@/components/artists/[id]/artistIndividualViewCards"
-import { useArtistDetail } from "@/lib/hooks/useArtistDetail"
-import { useArtistNotes } from "@/lib/hooks/useArtistNotes"
-import { useArtistMembers } from "@/lib/hooks/useArtistMembers"
-import { useArtistEdit } from "@/lib/hooks/useArtistEdit"
+import {
+  useArtist,
+  useUpdateArtist,
+  useAddArtistNote,
+  useUpdateArtistNote,
+  useDeleteArtistNote,
+  useAddArtistMember,
+  useUpdateArtistMember,
+  useDeleteArtistMember,
+} from "@/lib/hooks/queries/useArtistsQueries"
+import type { ArtistNote, ArtistMember, UpdateArtistData } from "@/types/artists"
 
 export default function ArtistDetailPage() {
   const params = useParams()
   const router = useRouter()
   const artistId = params.id as string
 
-  // Artist data and stats
-  const { artist, stats, loading, updateArtistInState } = useArtistDetail(artistId)
+  // Fetch artist data with TanStack Query
+  const { data: artist, isLoading } = useArtist(artistId)
 
-  // Notes management
-  const {
-    isAddNoteDialogOpen,
-    setIsAddNoteDialogOpen,
-    newNote,
-    setNewNote,
-    editingNote,
-    setEditingNote,
-    handleAddNote,
-    handleUpdateNote,
-    handleDeleteNote
-  } = useArtistNotes()
+  // Mutations for artist updates
+  const updateArtistMutation = useUpdateArtist()
+  const addNoteMutation = useAddArtistNote(artistId)
+  const updateNoteMutation = useUpdateArtistNote()
+  const deleteNoteMutation = useDeleteArtistNote()
+  const addMemberMutation = useAddArtistMember(artistId)
+  const updateMemberMutation = useUpdateArtistMember()
+  const deleteMemberMutation = useDeleteArtistMember()
 
-  // Members management
-  const {
-    isMemberDialogOpen,
-    setIsMemberDialogOpen,
-    editingMember,
-    setEditingMember,
-    handleAddMember,
-    handleUpdateMember,
-    handleDeleteMember
-  } = useArtistMembers()
+  // UI state for dialogs
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isAddNoteDialogOpen, setIsAddNoteDialogOpen] = useState(false)
+  const [isMemberDialogOpen, setIsMemberDialogOpen] = useState(false)
 
-  // Edit artist form
-  const {
-    isEditDialogOpen,
-    setIsEditDialogOpen,
-    editData,
-    setEditData,
-    initializeEditData,
-    handleUpdateArtist
-  } = useArtistEdit()
+  // Form state for notes
+  const [newNote, setNewNote] = useState<{
+    content: string
+    color: "yellow" | "blue" | "green" | "pink" | "purple"
+  }>({
+    content: "",
+    color: "yellow",
+  })
+  const [editingNote, setEditingNote] = useState<ArtistNote | null>(null)
+
+  // Form state for members
+  const [editingMember, setEditingMember] = useState<ArtistMember | null>(null)
+
+  // Form state for artist edit
+  const [editData, setEditData] = useState<UpdateArtistData>({
+    artist_name: "",
+    artist_type: "OTHER",
+    email: "",
+    phone: "",
+    bio: "",
+    status: "active",
+  })
 
   // Initialize edit data when artist loads
   React.useEffect(() => {
     if (artist) {
-      initializeEditData(artist)
+      setEditData({
+        artist_name: artist.artist_name,
+        artist_type: artist.artist_type,
+        email: artist.email,
+        phone: artist.phone,
+        bio: artist.bio,
+        status: artist.status,
+      })
     }
   }, [artist])
 
-  // State update callbacks for hooks
-  const handleNoteAdded = (note: any) => {
-    if (artist) {
-      updateArtistInState({
-        ...artist,
-        notes: [note, ...(artist.notes || [])]
-      })
-    }
+  // Placeholder stats (from the old hook)
+  const stats = {
+    totalBookings: 0,
+    totalRevenue: 0,
+    upcomingBookingsCount: 0,
+    completedBookingsCount: 0,
+    averageFee: 0,
   }
 
-  const handleNoteUpdated = (updatedNote: any) => {
-    if (artist) {
-      updateArtistInState({
-        ...artist,
-        notes: artist.notes.map((note) => (note.id === updatedNote.id ? updatedNote : note))
-      })
-    }
-  }
-
-  const handleNoteDeleted = (noteId: string) => {
-    if (artist) {
-      updateArtistInState({
-        ...artist,
-        notes: artist.notes.filter((note) => note.id !== noteId)
-      })
-    }
-  }
-
-  const handleMemberAdded = (member: any) => {
-    if (artist) {
-      updateArtistInState({
-        ...artist,
-        members: [...(artist.members || []), member]
-      })
-    }
-  }
-
-  const handleMemberUpdated = (updatedMember: any) => {
-    if (artist) {
-      updateArtistInState({
-        ...artist,
-        members: artist.members.map((member) => (member.id === updatedMember.id ? updatedMember : member))
-      })
-    }
-  }
-
-  const handleMemberDeleted = (memberId: string) => {
-    if (artist) {
-      updateArtistInState({
-        ...artist,
-        members: artist.members.filter((member) => member.id !== memberId)
-      })
-    }
-  }
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <div className="text-center space-y-4">
@@ -136,6 +107,67 @@ export default function ArtistDetailPage() {
 
   if (!artist) {
     return <div>Artist not found</div>
+  }
+
+  // Simplified mutation handlers - TanStack Query handles cache updates automatically!
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await addNoteMutation.mutateAsync({
+      content: newNote.content,
+      color: newNote.color,
+    })
+    setIsAddNoteDialogOpen(false)
+    setNewNote({ content: "", color: "yellow" })
+  }
+
+  const handleUpdateNote = async (noteId: string, content: string) => {
+    updateNoteMutation.mutate({
+      artistId,
+      noteId,
+      data: { content }
+    }, {
+      onSuccess: () => {
+        setEditingNote(null)
+      }
+    })
+  }
+
+  const handleDeleteNote = async (noteId: string) => {
+    deleteNoteMutation.mutate({
+      artistId,
+      noteId
+    })
+  }
+
+  const handleAddMember = async (data: any) => {
+    await addMemberMutation.mutateAsync(data)
+    setIsMemberDialogOpen(false)
+  }
+
+  const handleUpdateMember = async (memberId: string, data: any) => {
+    updateMemberMutation.mutate({
+      artistId,
+      memberId,
+      data
+    }, {
+      onSuccess: () => {
+        setEditingMember(null)
+        setIsMemberDialogOpen(false)
+      }
+    })
+  }
+
+  const handleDeleteMember = async (memberId: string) => {
+    deleteMemberMutation.mutate({
+      artistId,
+      memberId
+    })
+  }
+
+  const handleUpdateArtist = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await updateArtistMutation.mutateAsync({ id: artistId, data: editData })
+    setIsEditDialogOpen(false)
   }
 
   return (
@@ -173,9 +205,9 @@ export default function ArtistDetailPage() {
         <BookingsTabs stats={stats} />
         <MembersInformation 
           artist={artist}
-          onAddMember={(data) => handleAddMember(data, artistId, handleMemberAdded)}
-          onUpdateMember={(memberId, data) => handleUpdateMember(memberId, data, artistId, handleMemberUpdated)}
-          onDeleteMember={(memberId) => handleDeleteMember(memberId, artistId, () => handleMemberDeleted(memberId))}
+          onAddMember={handleAddMember}
+          onUpdateMember={handleUpdateMember}
+          onDeleteMember={handleDeleteMember}
           isMemberDialogOpen={isMemberDialogOpen}
           setIsMemberDialogOpen={setIsMemberDialogOpen}
           editingMember={editingMember}
@@ -188,9 +220,9 @@ export default function ArtistDetailPage() {
         <Documents />
         <NotesSection
           artist={artist}
-          onAddNote={(e) => handleAddNote(e, artistId, handleNoteAdded)}
-          onUpdateNote={(noteId, content) => handleUpdateNote(noteId, content, artistId, handleNoteUpdated)}
-          onDeleteNote={(noteId) => handleDeleteNote(noteId, artistId, () => handleNoteDeleted(noteId))}
+          onAddNote={handleAddNote}
+          onUpdateNote={handleUpdateNote}
+          onDeleteNote={handleDeleteNote}
           isAddNoteDialogOpen={isAddNoteDialogOpen}
           setIsAddNoteDialogOpen={setIsAddNoteDialogOpen}
           newNote={newNote}
@@ -206,7 +238,7 @@ export default function ArtistDetailPage() {
         onOpenChange={setIsEditDialogOpen}
         editData={editData}
         setEditData={setEditData}
-        onSubmit={(e) => handleUpdateArtist(e, artistId, updateArtistInState)}
+        onSubmit={handleUpdateArtist}
       />
     </div>
   )

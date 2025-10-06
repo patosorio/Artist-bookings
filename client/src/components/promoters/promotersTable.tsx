@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   Table,
   TableBody,
@@ -29,6 +30,8 @@ import {
   ToggleRight,
   Eye
 } from "lucide-react"
+import { promoters as promotersApi } from "@/lib/api/promoter-api"
+import { promoterKeys } from "@/lib/queries/queryKeys"
 import type { Promoter } from "@/types/promoters"
 
 interface PromotersTableProps {
@@ -48,9 +51,18 @@ export function PromotersTable({
   onDuplicate,
   onView 
 }: PromotersTableProps) {
+  const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<string>("all")
   const [filterStatus, setFilterStatus] = useState<string>("all")
+
+  // Prefetch promoter detail on hover for faster navigation
+  const prefetchPromoter = (id: string) => {
+    queryClient.prefetchQuery({
+      queryKey: promoterKeys.detail(id),
+      queryFn: () => promotersApi.fetchPromoter(id),
+    })
+  }
 
   const filteredPromoters = promoters.filter((promoter) => {
     const matchesSearch = 
@@ -142,7 +154,10 @@ export function PromotersTable({
           </TableHeader>
           <TableBody>
             {filteredPromoters.map((promoter) => (
-              <TableRow key={promoter.id}>
+              <TableRow 
+                key={promoter.id}
+                onMouseEnter={() => prefetchPromoter(promoter.id)}
+              >
                 <TableCell className="font-medium">
                   {promoter.promoter_name}
                 </TableCell>

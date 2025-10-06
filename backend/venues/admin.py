@@ -110,9 +110,12 @@ class VenueAdmin(admin.ModelAdmin):
             category = "Massive"
             color = "#dc3545"  # Red
         
+        # Format the capacity with thousands separator first
+        capacity_formatted = f"{obj.capacity:,}"
+        
         return format_html(
-            '<span style="color: {}; font-weight: bold;">{:,}</span> <small>({})</small>',
-            color, obj.capacity, category
+            '<span style="color: {}; font-weight: bold;">{}</span> <small>({})</small>',
+            color, capacity_formatted, category
         )
     get_capacity_display.short_description = "Capacity"
     get_capacity_display.admin_order_field = "capacity"

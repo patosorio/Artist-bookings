@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useState } from "react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -17,29 +18,105 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Shield, Users, Activity, DollarSign, UserPlus, Trash2 } from "lucide-react"
-import { useAdminPanel } from "@/lib/hooks/useAdminPanel"
-import { useUserInvitations } from "@/lib/hooks/useUserInvitations"
+import { useAuthContext } from "@/components/providers/AuthProvider"
+import {
+  useAgencyUsers,
+  useInviteUser,
+  useUpdateUserRole,
+  useRemoveUser,
+} from "@/lib/hooks/queries/useAgencyQueries"
 
 export default function AdminPage() {
-  const {
-    users,
-    loading,
-    hasAccess,
-    handleRoleChange,
-    handleRemoveUser,
-    refreshUsers,
-    stats
-  } = useAdminPanel()
+  // Check permissions
+  const { userProfile } = useAuthContext()
+  const hasAccess = userProfile?.role === "agency_owner" || userProfile?.role === "agency_manager"
 
-  const {
-    isInviteDialogOpen,
-    setIsInviteDialogOpen,
-    inviteData,
-    setInviteData,
-    inviteSuccess,
-    setInviteSuccess,
-    handleInviteUser
-  } = useUserInvitations()
+  // Fetch users with TanStack Query
+  const { data: users = [], isLoading } = useAgencyUsers()
+
+  // Mutations
+  const inviteUserMutation = useInviteUser()
+  const updateRoleMutation = useUpdateUserRole()
+  const removeUserMutation = useRemoveUser()
+
+  // UI state for dialogs
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
+  const [inviteSuccess, setInviteSuccess] = useState<{ show: boolean; url?: string }>({ show: false })
+
+  // Form state for invitation
+  const [inviteData, setInviteData] = useState<{
+    email: string
+    role: "agency_agent" | "agency_manager" | "agency_viewer"
+  }>({
+    email: "",
+    role: "agency_agent",
+  })
+
+  // Import icons dynamically to avoid issues
+  const { Users: UsersIcon, DollarSign: DollarSignIcon, Activity: ActivityIcon, Settings: SettingsIcon } = require("lucide-react")
+
+  // Stats (placeholder data from the old hook)
+  const stats = [
+    {
+      title: "Total Users",
+      value: users.length.toString(),
+      description: "Active team members",
+      icon: UsersIcon,
+      color: "text-blue-600",
+    },
+    {
+      title: "Monthly Revenue",
+      value: "$125,000",
+      description: "+12% from last month",
+      icon: DollarSignIcon,
+      color: "text-green-600",
+    },
+    {
+      title: "Active Bookings",
+      value: "23",
+      description: "This month",
+      icon: ActivityIcon,
+      color: "text-purple-600",
+    },
+    {
+      title: "System Health",
+      value: "99.9%",
+      description: "Uptime",
+      icon: SettingsIcon,
+      color: "text-orange-600",
+    },
+  ]
+
+  // Handlers using TanStack Query mutations
+  const handleRoleChange = (userId: string, role: string) => {
+    updateRoleMutation.mutate({ userId, role })
+  }
+
+  const handleRemoveUser = async (userId: string) => {
+    await removeUserMutation.mutateAsync(userId)
+  }
+
+  const handleInviteUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      const response = await inviteUserMutation.mutateAsync({
+        email: inviteData.email,
+        role: inviteData.role,
+      })
+
+      setIsInviteDialogOpen(false)
+      setInviteData({ email: "", role: "agency_agent" })
+
+      // Show success dialog with invitation URL
+      setInviteSuccess({
+        show: true,
+        url: response.invitation_url,
+      })
+    } catch (error) {
+      // Error is handled by the mutation's onError callback
+      console.error("Failed to invite user:", error)
+    }
+  }
 
   if (!hasAccess) {
     return (
@@ -53,7 +130,7 @@ export default function AdminPage() {
     )
   }
 
-  if (loading) {
+  if (isLoading) {
     return <div>Loading admin panel...</div>
   }
 
@@ -111,7 +188,7 @@ export default function AdminPage() {
                       Send an invitation to a new team member to join your agency.
                     </DialogDescription>
                   </DialogHeader>
-                  <form onSubmit={(e) => handleInviteUser(e, refreshUsers)} className="space-y-4">
+                  <form onSubmit={handleInviteUser} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
                       <Input

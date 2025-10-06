@@ -9,10 +9,16 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Building2 } from "lucide-react"
-import { usePromotersContext } from "@/components/providers/PromotersProvider"
+import {
+  usePromoters,
+  useCreatePromoter,
+  useUpdatePromoter,
+  useDeletePromoter,
+  useTogglePromoterStatus,
+  useDuplicatePromoter
+} from "@/lib/hooks/queries/usePromotersQueries"
 import { PromotersTable } from "@/components/promoters/promotersTable"
 import type { Promoter, CreatePromoterData, UpdatePromoterData } from "@/types/promoters"
-import { toast } from "sonner"
 
 const promoterTypes = [
   { value: "festival", label: "Festival" },
@@ -24,10 +30,19 @@ const promoterTypes = [
 ]
 
 export default function PromotersPage() {
-  const { promoters: promotersList, loading, refreshPromoters } = usePromotersContext()
+  // TanStack Query hooks
+  const { data: promotersList = [], isLoading } = usePromoters()
+  const createPromoterMutation = useCreatePromoter()
+  const updatePromoterMutation = useUpdatePromoter()
+  const deletePromoterMutation = useDeletePromoter()
+  const toggleStatusMutation = useTogglePromoterStatus()
+  const duplicatePromoterMutation = useDuplicatePromoter()
+
+  // UI state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingPromoter, setEditingPromoter] = useState<Promoter | null>(null)
+  
   const defaultPromoterData: CreatePromoterData = {
     promoter_name: "",
     promoter_email: "",
@@ -50,25 +65,14 @@ export default function PromotersPage() {
     e.preventDefault()
     setFormErrors({})
     try {
-      const { promoters } = await import("@/lib/api/promoter-api")
-      const created = await promoters.create(newPromoter)
-      await refreshPromoters()
+      await createPromoterMutation.mutateAsync(newPromoter)
       setIsCreateDialogOpen(false)
       setNewPromoter(defaultPromoterData)
-      toast.success("Promoter created successfully!")
     } catch (error: any) {
-      console.error("Failed to create promoter:", error)
+      // Field errors for form display
       const fieldErrors = error.response?.data
       if (fieldErrors && typeof fieldErrors === 'object') {
         setFormErrors(fieldErrors)
-        const firstError = Object.values(fieldErrors)[0]
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          toast.error(firstError[0])
-        } else {
-          toast.error("Failed to create promoter")
-        }
-      } else {
-        toast.error("Failed to create promoter")
       }
     }
   }
@@ -84,7 +88,6 @@ export default function PromotersPage() {
 
     setFormErrors({})
     try {
-      const { promoters } = await import("@/lib/api/promoter-api")
       const updateData: UpdatePromoterData = {
         promoter_name: editingPromoter.promoter_name,
         promoter_email: editingPromoter.promoter_email,
@@ -100,30 +103,32 @@ export default function PromotersPage() {
         notes: editingPromoter.notes,
         is_active: editingPromoter.is_active
       }
-      const updated = await promoters.update(editingPromoter.id, updateData)
-      await refreshPromoters()
+      await updatePromoterMutation.mutateAsync({ id: editingPromoter.id, data: updateData })
       setIsEditDialogOpen(false)
       setEditingPromoter(null)
-      toast.success("Promoter updated successfully!")
     } catch (error: any) {
-      console.error("Failed to update promoter:", error)
+      // Field errors for form display
       const fieldErrors = error.response?.data
       if (fieldErrors && typeof fieldErrors === 'object') {
         setFormErrors(fieldErrors)
-        const firstError = Object.values(fieldErrors)[0]
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          toast.error(firstError[0])
-        } else {
-          toast.error("Failed to update promoter")
-        }
-      } else {
-        toast.error("Failed to update promoter")
       }
     }
   }
 
 
-  if (loading) {
+  const handleDeletePromoter = (promoter: Promoter) => {
+    deletePromoterMutation.mutate(promoter.id)
+  }
+
+  const handleToggleStatus = (promoter: Promoter) => {
+    toggleStatusMutation.mutate(promoter.id)
+  }
+
+  const handleDuplicatePromoter = (promoter: Promoter) => {
+    duplicatePromoterMutation.mutate({ id: promoter.id, suffix: " (Copy)" })
+  }
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <div className="text-center space-y-4">
@@ -455,9 +460,9 @@ export default function PromotersPage() {
         <PromotersTable 
           promoters={promotersList} 
           onEdit={handleEditPromoter}
-          onDelete={async (promoter) => {
-            await refreshPromoters()
-          }}
+          onDelete={handleDeletePromoter}
+          onToggleStatus={handleToggleStatus}
+          onDuplicate={handleDuplicatePromoter}
         />
       )}
     </div>

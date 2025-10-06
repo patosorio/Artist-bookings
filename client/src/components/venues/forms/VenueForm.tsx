@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { CreateVenueData, UpdateVenueData } from "@/types/venues"
+import { toast } from "sonner"
 
 interface VenueFormProps {
   initialData?: Partial<CreateVenueData | UpdateVenueData>
@@ -66,19 +67,43 @@ export function VenueForm({
   })
 
   const [formErrors, setFormErrors] = useState<Record<string, string[]>>({})
+  const [generalError, setGeneralError] = useState<string>("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormErrors({})
+    setGeneralError("")
+    
+    console.log("VenueForm: handleSubmit called", formData)
+    
+    // Client-side validation: at least one contact method required
+    if (!formData.contact_email && !formData.contact_phone && !formData.website) {
+      const errorMsg = "At least one contact method (email, phone, or website) must be provided."
+      console.log("VenueForm: Validation failed -", errorMsg)
+      setGeneralError(errorMsg)
+      toast.error(errorMsg)
+      return
+    }
     
     try {
+      console.log("VenueForm: Calling onSubmit...")
       await onSubmit(formData)
+      console.log("VenueForm: onSubmit succeeded")
     } catch (error: any) {
-      console.error("Form submission error:", error)
+      console.error("VenueForm: Form submission error:", error)
       const fieldErrors = error.response?.data
       if (fieldErrors && typeof fieldErrors === 'object') {
         setFormErrors(fieldErrors)
+        // Handle non-field errors
+        if (fieldErrors.non_field_errors && Array.isArray(fieldErrors.non_field_errors)) {
+          setGeneralError(fieldErrors.non_field_errors[0])
+        }
+      } else {
+        // Show generic error if no field errors
+        setGeneralError(error.message || "An error occurred while saving the venue")
       }
+      // Re-throw to let parent know submission failed
+      throw error
     }
   }
 
@@ -88,6 +113,13 @@ export function VenueForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* General Error */}
+      {generalError && (
+        <div className="p-3 rounded-md bg-destructive/10 border border-destructive text-destructive text-sm">
+          {generalError}
+        </div>
+      )}
+      
       {/* Basic Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-medium">Basic Information</h3>
@@ -201,7 +233,12 @@ export function VenueForm({
 
       {/* Contact Information */}
       <div className="space-y-4">
-        <h3 className="text-lg font-medium">Contact Information</h3>
+        <div>
+          <h3 className="text-lg font-medium">Contact Information</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            At least one contact method (email, phone, or website) is required *
+          </p>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">

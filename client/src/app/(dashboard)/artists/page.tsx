@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -9,18 +9,23 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Search, Users } from "lucide-react"
-import { artists } from "@/lib/api/artist-api"
+import {
+  useArtists,
+  useCreateArtist,
+  useUpdateArtist,
+  useDeleteArtist
+} from "@/lib/hooks/queries/useArtistsQueries"
 import type { Artist, CreateArtistData, UpdateArtistData } from "@/types/artists"
-import { useAuthContext } from "@/components/providers/AuthProvider"
-import { useArtistsContext } from "@/components/providers/ArtistsProvider"
-import { useRouter } from "next/navigation"
 import { ArtistGrid } from "@/components/artists/artistCards"
-import { toast } from "sonner"
 
 export default function ArtistsPage() {
-  const { firebaseUser: user } = useAuthContext()
-  const { artists: artistsList, loading, refreshArtists } = useArtistsContext()
-  const router = useRouter()
+  // TanStack Query hooks
+  const { data: artistsList = [], isLoading } = useArtists()
+  const createArtistMutation = useCreateArtist()
+  const updateArtistMutation = useUpdateArtist()
+  const deleteArtistMutation = useDeleteArtist()
+
+  // UI state
   const [searchTerm, setSearchTerm] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -37,44 +42,20 @@ export default function ArtistsPage() {
     is_active: true
   }
   const [newArtist, setNewArtist] = useState<CreateArtistData>(defaultArtistData)
-
-
-
   const [formErrors, setFormErrors] = useState<Record<string, string[]>>({})
 
   const handleCreateArtist = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormErrors({})
     try {
-      const created = await artists.create(newArtist)
-      await refreshArtists() // Refresh the shared artists data
+      await createArtistMutation.mutateAsync(newArtist)
       setIsCreateDialogOpen(false)
-      setNewArtist({
-        artist_name: "",
-        artist_type: "OTHER",
-        country: "",
-        number_of_members: 1,
-        email: "",
-        phone: "",
-        bio: "",
-        status: "active",
-        is_active: true
-      })
-      toast.success("Artist created successfully!")
+      setNewArtist(defaultArtistData)
     } catch (error: any) {
-      console.error("Failed to create artist:", error)
+      // Field errors for form display
       const fieldErrors = error.response?.data
       if (fieldErrors && typeof fieldErrors === 'object') {
         setFormErrors(fieldErrors)
-        // Show the first error in the toast
-        const firstError = Object.values(fieldErrors)[0]
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          toast.error(firstError[0])
-        } else {
-          toast.error("Failed to create artist")
-        }
-      } else {
-        toast.error("Failed to create artist")
       }
     }
   }
@@ -101,26 +82,20 @@ export default function ArtistsPage() {
         status: editingArtist.status,
         is_active: editingArtist.is_active
       }
-      const updated = await artists.update(editingArtist.id, updateData)
-      await refreshArtists() // Refresh the shared artists data
+      await updateArtistMutation.mutateAsync({ id: editingArtist.id, data: updateData })
       setIsEditDialogOpen(false)
       setEditingArtist(null)
-      toast.success("Artist updated successfully!")
     } catch (error: any) {
-      console.error("Failed to update artist:", error)
+      // Field errors for form display
       const fieldErrors = error.response?.data
       if (fieldErrors && typeof fieldErrors === 'object') {
         setFormErrors(fieldErrors)
-        const firstError = Object.values(fieldErrors)[0]
-        if (Array.isArray(firstError) && firstError.length > 0) {
-          toast.error(firstError[0])
-        } else {
-          toast.error("Failed to update artist")
-        }
-      } else {
-        toast.error("Failed to update artist")
       }
     }
+  }
+
+  const handleDeleteArtist = (artist: Artist) => {
+    deleteArtistMutation.mutate(artist.id)
   }
 
   const filteredArtists = artistsList.filter(
@@ -129,7 +104,7 @@ export default function ArtistsPage() {
       artist.artist_type.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <div className="text-center space-y-4">
@@ -455,9 +430,7 @@ export default function ArtistsPage() {
             <ArtistGrid 
               artists={filteredArtists} 
               onEdit={handleEditArtist}
-              onDelete={async (artist) => {
-                await refreshArtists() // Refresh the shared artists data
-              }}
+              onDelete={handleDeleteArtist}
             />
           )}
         </>

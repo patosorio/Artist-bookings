@@ -4,34 +4,37 @@ import { Button } from "@/components/ui/button"
 import { Eye, Edit, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { artists } from "@/lib/api/artist-api"
-import { toast } from "sonner"
+import { artistKeys } from "@/lib/queries/queryKeys"
+import { useDeleteArtist } from "@/lib/hooks/queries/useArtistsQueries"
 import Link from "next/link"
 import type { Artist } from "@/types/artists"
 
 interface ArtistCardProps {
   artist: Artist
   onEdit?: (artist: Artist) => void
-  onDelete?: (artist: Artist) => void
 }
 
-export function ArtistCard({ artist, onEdit, onDelete }: ArtistCardProps) {
+export function ArtistCard({ artist, onEdit }: ArtistCardProps) {
+  const queryClient = useQueryClient()
+  const deleteArtistMutation = useDeleteArtist()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
 
-  const handleDelete = async () => {
-    try {
-      setIsDeleting(true)
-      await artists.delete(artist.id)
-      setIsDeleteDialogOpen(false)
-      onDelete?.(artist)
-      toast.success("Artist deleted successfully")
-    } catch (error) {
-      console.error("Failed to delete artist:", error)
-      toast.error("Failed to delete artist")
-    } finally {
-      setIsDeleting(false)
-    }
+  // Prefetch artist detail on hover for faster navigation
+  const prefetchArtist = () => {
+    queryClient.prefetchQuery({
+      queryKey: artistKeys.detail(artist.id),
+      queryFn: () => artists.fetchArtist(artist.id),
+    })
+  }
+
+  const handleDelete = () => {
+    deleteArtistMutation.mutate(artist.id, {
+      onSuccess: () => {
+        setIsDeleteDialogOpen(false)
+      }
+    })
   }
 
   return (
@@ -65,7 +68,11 @@ export function ArtistCard({ artist, onEdit, onDelete }: ArtistCardProps) {
           </div>
         </div>
         <div className="flex space-x-2 mt-4">
-          <Link href={`/artists/${artist.id}`} className="flex-1">
+          <Link 
+            href={`/artists/${artist.id}`} 
+            className="flex-1"
+            onMouseEnter={prefetchArtist}
+          >
             <Button variant="outline" size="sm" className="w-full">
               <Eye className="h-4 w-4 mr-2" />
               View
@@ -104,16 +111,16 @@ export function ArtistCard({ artist, onEdit, onDelete }: ArtistCardProps) {
             <Button
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
-              disabled={isDeleting}
+              disabled={deleteArtistMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={deleteArtistMutation.isPending}
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {deleteArtistMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -133,7 +140,7 @@ export function ArtistGrid({ artists, onEdit, onDelete }: ArtistGridProps) {
     <div className="max-w-7xl">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {artists.map((artist) => (
-          <ArtistCard key={artist.id} artist={artist} onEdit={onEdit} onDelete={onDelete} />
+          <ArtistCard key={artist.id} artist={artist} onEdit={onEdit} />
         ))}
       </div>
     </div>

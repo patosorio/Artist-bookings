@@ -1,7 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react"
-import { artists } from "@/lib/api/artist-api"
+import { createContext, useContext, ReactNode } from "react"
+import { useArtists } from "@/lib/hooks/queries/useArtistsQueries"
 import { Artist } from "@/types/artists"
 
 interface ArtistsContextType {
@@ -14,38 +14,26 @@ interface ArtistsContextType {
 const ArtistsContext = createContext<ArtistsContextType | undefined>(undefined)
 
 export function ArtistsProvider({ children }: { children: ReactNode }) {
-  const [artistsList, setArtistsList] = useState<Artist[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const loadArtists = async () => {
-    try {
-      setLoading(true)
-      const data = await artists.fetchArtists()
-      setArtistsList(data)
-    } catch (error) {
-      console.error("Failed to load artists:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Query for artists list
+  const { 
+    data: artistsList = [], 
+    isLoading, 
+    refetch 
+  } = useArtists()
 
   const refreshArtists = async () => {
-    await loadArtists()
+    await refetch()
   }
 
   const getArtistById = (id: string) => {
     return artistsList.find(artist => artist.id === id)
   }
 
-  useEffect(() => {
-    loadArtists()
-  }, [])
-
   return (
     <ArtistsContext.Provider 
       value={{ 
         artists: artistsList, 
-        loading, 
+        loading: isLoading, 
         refreshArtists,
         getArtistById
       }}

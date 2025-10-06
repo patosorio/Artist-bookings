@@ -1,20 +1,15 @@
 "use client"
 
 import React, { createContext, useContext, ReactNode } from "react"
-import { useVenues } from "@/lib/hooks/useVenues"
-import { Venue, CreateVenueData, UpdateVenueData } from "@/types/venues"
+import { useVenues } from "@/lib/hooks/queries/useVenuesQueries"
+import { Venue } from "@/types/venues"
 
 interface VenuesContextType {
   venues: Venue[]
   loading: boolean
   error: string | null
   refreshVenues: () => Promise<void>
-  createVenue: (data: CreateVenueData) => Promise<Venue>
-  updateVenue: (id: string, data: UpdateVenueData) => Promise<Venue>
-  deleteVenue: (id: string) => Promise<void>
-  toggleVenueStatus: (id: string) => Promise<Venue>
-  duplicateVenue: (id: string, suffix?: string) => Promise<Venue>
-  bulkUpdateStatus: (venueIds: string[], isActive: boolean) => Promise<{ message: string; updated_count: number }>
+  getVenueById: (id: string) => Venue | undefined
 }
 
 const VenuesContext = createContext<VenuesContextType | undefined>(undefined)
@@ -24,10 +19,27 @@ interface VenuesProviderProps {
 }
 
 export function VenuesProvider({ children }: VenuesProviderProps) {
-  const venuesData = useVenues()
+  // Query for venues list
+  const { data: venues = [], isLoading, error, refetch } = useVenues()
+
+  const refreshVenues = async () => {
+    await refetch()
+  }
+
+  const getVenueById = (id: string) => {
+    return venues.find(venue => venue.id === id)
+  }
 
   return (
-    <VenuesContext.Provider value={venuesData}>
+    <VenuesContext.Provider 
+      value={{ 
+        venues, 
+        loading: isLoading, 
+        error: error?.message || null,
+        refreshVenues,
+        getVenueById
+      }}
+    >
       {children}
     </VenuesContext.Provider>
   )
