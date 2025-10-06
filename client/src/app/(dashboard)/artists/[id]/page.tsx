@@ -14,16 +14,16 @@ import {
   Documents,
   MembersInformation,
 } from "@/components/artists/[id]/artistIndividualViewCards"
-import { useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
 import {
   useArtist,
   useUpdateArtist,
   useAddArtistNote,
+  useUpdateArtistNote,
+  useDeleteArtistNote,
   useAddArtistMember,
+  useUpdateArtistMember,
+  useDeleteArtistMember,
 } from "@/lib/hooks/queries/useArtistsQueries"
-import { artists as artistsApi } from "@/lib/api/artist-api"
-import { artistKeys } from "@/lib/queries/queryKeys"
 import type { ArtistNote, ArtistMember, UpdateArtistData } from "@/types/artists"
 
 export default function ArtistDetailPage() {
@@ -33,12 +33,15 @@ export default function ArtistDetailPage() {
 
   // Fetch artist data with TanStack Query
   const { data: artist, isLoading } = useArtist(artistId)
-  const queryClient = useQueryClient()
 
   // Mutations for artist updates
   const updateArtistMutation = useUpdateArtist()
   const addNoteMutation = useAddArtistNote(artistId)
+  const updateNoteMutation = useUpdateArtistNote()
+  const deleteNoteMutation = useDeleteArtistNote()
   const addMemberMutation = useAddArtistMember(artistId)
+  const updateMemberMutation = useUpdateArtistMember()
+  const deleteMemberMutation = useDeleteArtistMember()
 
   // UI state for dialogs
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -118,28 +121,22 @@ export default function ArtistDetailPage() {
   }
 
   const handleUpdateNote = async (noteId: string, content: string) => {
-    try {
-      await artistsApi.updateNote(artistId, noteId, { content })
-      // Invalidate queries to update cache
-      queryClient.invalidateQueries({ queryKey: artistKeys.detail(artistId) })
-      queryClient.invalidateQueries({ queryKey: artistKeys.notes(artistId) })
-      setEditingNote(null)
-      toast.success('Note updated successfully')
-    } catch (error: any) {
-      toast.error('Failed to update note')
-    }
+    updateNoteMutation.mutate({
+      artistId,
+      noteId,
+      data: { content }
+    }, {
+      onSuccess: () => {
+        setEditingNote(null)
+      }
+    })
   }
 
   const handleDeleteNote = async (noteId: string) => {
-    try {
-      await artistsApi.deleteNote(artistId, noteId)
-      // Invalidate queries to update cache
-      queryClient.invalidateQueries({ queryKey: artistKeys.detail(artistId) })
-      queryClient.invalidateQueries({ queryKey: artistKeys.notes(artistId) })
-      toast.success('Note deleted successfully')
-    } catch (error: any) {
-      toast.error('Failed to delete note')
-    }
+    deleteNoteMutation.mutate({
+      artistId,
+      noteId
+    })
   }
 
   const handleAddMember = async (data: any) => {
@@ -148,29 +145,23 @@ export default function ArtistDetailPage() {
   }
 
   const handleUpdateMember = async (memberId: string, data: any) => {
-    try {
-      await artistsApi.updateMember(artistId, memberId, data)
-      // Invalidate queries to update cache
-      queryClient.invalidateQueries({ queryKey: artistKeys.detail(artistId) })
-      queryClient.invalidateQueries({ queryKey: artistKeys.members(artistId) })
-      setEditingMember(null)
-      setIsMemberDialogOpen(false)
-      toast.success('Member updated successfully')
-    } catch (error: any) {
-      toast.error('Failed to update member')
-    }
+    updateMemberMutation.mutate({
+      artistId,
+      memberId,
+      data
+    }, {
+      onSuccess: () => {
+        setEditingMember(null)
+        setIsMemberDialogOpen(false)
+      }
+    })
   }
 
   const handleDeleteMember = async (memberId: string) => {
-    try {
-      await artistsApi.deleteMember(artistId, memberId)
-      // Invalidate queries to update cache
-      queryClient.invalidateQueries({ queryKey: artistKeys.detail(artistId) })
-      queryClient.invalidateQueries({ queryKey: artistKeys.members(artistId) })
-      toast.success('Member deleted successfully')
-    } catch (error: any) {
-      toast.error('Failed to delete member')
-    }
+    deleteMemberMutation.mutate({
+      artistId,
+      memberId
+    })
   }
 
   const handleUpdateArtist = async (e: React.FormEvent) => {

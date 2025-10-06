@@ -1,11 +1,132 @@
 from django.contrib import admin
 from django.utils.html import format_html
+from django import forms
 from .models import Contact
+
+
+class ContactAdminForm(forms.ModelForm):
+    """Custom form for Contact admin with searchable dropdowns."""
+    
+    promoter = forms.ModelChoiceField(
+        queryset=None,
+        required=False,
+        label='Promoter',
+        help_text='Select the promoter this contact is associated with'
+    )
+    venue = forms.ModelChoiceField(
+        queryset=None,
+        required=False,
+        label='Venue',
+        help_text='Select the venue this contact is associated with'
+    )
+    
+    class Meta:
+        model = Contact
+        fields = '__all__'
+    
+    def __init__(self, *args, **kwargs):
+        # Extract request from kwargs if provided
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+        
+        # Import models here to avoid circular imports
+        from promoters.models import Promoter
+        from venues.models import Venue
+        
+        # Get the agency from the instance, initial data, or request user
+        agency = None
+        if self.instance and self.instance.pk and hasattr(self.instance, 'agency'):
+            agency = self.instance.agency
+        elif 'agency' in self.initial:
+            agency = self.initial['agency']
+        elif self.request and hasattr(self.request, 'user') and hasattr(self.request.user, 'userprofile'):
+            agency = self.request.user.userprofile.agency
+        
+        # Set querysets based on agency
+        if agency:
+            self.fields['promoter'].queryset = Promoter.objects.filter(agency=agency).order_by('promoter_name')
+            self.fields['venue'].queryset = Venue.objects.filter(agency=agency).order_by('venue_name')
+        else:
+            self.fields['promoter'].queryset = Promoter.objects.none()
+            self.fields['venue'].queryset = Venue.objects.none()
+        
+        # Pre-populate fields if editing existing contact
+        if self.instance and self.instance.pk:
+            if self.instance.promoter_id:
+                try:
+                    self.fields['promoter'].initial = Promoter.objects.get(
+                        id=self.instance.promoter_id,
+                        agency=agency
+                    )
+                except (Promoter.DoesNotExist, ValueError):
+                    pass
+            
+            if self.instance.venue_id:
+                try:
+                    self.fields['venue'].initial = Venue.objects.get(
+                        id=self.instance.venue_id,
+                        agency=agency
+                    )
+                except (Venue.DoesNotExist, ValueError):
+                    pass
+        
+        # Hide the original CharField fields
+        if 'promoter_id' in self.fields:
+            self.fields['promoter_id'].widget = forms.HiddenInput()
+        if 'venue_id' in self.fields:
+            self.fields['venue_id'].widget = forms.HiddenInput()
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        
+        # Convert model instances to UUIDs for storage
+        promoter = cleaned_data.get('promoter')
+        if promoter:
+            cleaned_data['promoter_id'] = str(promoter.id)
+        else:
+            cleaned_data['promoter_id'] = None
+        
+        venue = cleaned_data.get('venue')
+        if venue:
+            cleaned_data['venue_id'] = str(venue.id)
+        else:
+            cleaned_data['venue_id'] = None
+        
+        # Validate based on reference type
+        reference_type = cleaned_data.get('reference_type')
+        
+        if reference_type == Contact.ReferenceType.PROMOTER:
+            if not cleaned_data.get('promoter_id'):
+                raise forms.ValidationError("Please select a promoter for promoter contacts")
+            cleaned_data['venue_id'] = None
+        elif reference_type == Contact.ReferenceType.VENUE:
+            if not cleaned_data.get('venue_id'):
+                raise forms.ValidationError("Please select a venue for venue contacts")
+            cleaned_data['promoter_id'] = None
+        elif reference_type == Contact.ReferenceType.AGENCY:
+            cleaned_data['promoter_id'] = None
+            cleaned_data['venue_id'] = None
+        
+        return cleaned_data
+    
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        
+        # Ensure the UUID fields are set
+        if hasattr(self, 'cleaned_data'):
+            instance.promoter_id = self.cleaned_data.get('promoter_id')
+            instance.venue_id = self.cleaned_data.get('venue_id')
+        
+        if commit:
+            instance.save()
+        return instance
 
 
 @admin.register(Contact)
 class ContactAdmin(admin.ModelAdmin):
     """Django admin configuration for Contact model."""
+    
+    form = ContactAdminForm
     
     list_display = [
         'contact_name', 'contact_email', 'get_reference_display', 
@@ -28,7 +149,7 @@ class ContactAdmin(admin.ModelAdmin):
             'fields': ('contact_name', 'contact_email', 'contact_phone', 'contact_type', 'job_title', 'department')
         }),
         ('Reference Information', {
-            'fields': ('reference_type', 'promoter_id', 'venue_id', 'reference_display_name'),
+            'fields': ('reference_type', 'promoter', 'venue', 'reference_display_name'),
             'description': 'Specify what entity this contact is associated with'
         }),
         ('Contact Preferences', {
@@ -187,3 +308,14 @@ class ContactAdmin(admin.ModelAdmin):
         updated = queryset.update(is_emergency=False)
         self.message_user(request, f'{updated} contacts removed from emergency status.')
     unmark_emergency.short_description = "🚨 Remove emergency status"
+    
+    def get_form(self, request, obj=None, **kwargs):
+        """Pass request to form so it can access user's agency."""
+        form = super().get_form(request, obj, **kwargs)
+        
+        class FormWithRequest(form):
+            def __new__(cls, *args, **kwargs):
+                kwargs['request'] = request
+                return form(*args, **kwargs)
+        
+        return FormWithRequest

@@ -7,20 +7,19 @@ import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { artists } from "@/lib/api/artist-api"
 import { artistKeys } from "@/lib/queries/queryKeys"
-import { toast } from "sonner"
+import { useDeleteArtist } from "@/lib/hooks/queries/useArtistsQueries"
 import Link from "next/link"
 import type { Artist } from "@/types/artists"
 
 interface ArtistCardProps {
   artist: Artist
   onEdit?: (artist: Artist) => void
-  onDelete?: (artist: Artist) => void
 }
 
-export function ArtistCard({ artist, onEdit, onDelete }: ArtistCardProps) {
+export function ArtistCard({ artist, onEdit }: ArtistCardProps) {
   const queryClient = useQueryClient()
+  const deleteArtistMutation = useDeleteArtist()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
 
   // Prefetch artist detail on hover for faster navigation
   const prefetchArtist = () => {
@@ -30,19 +29,12 @@ export function ArtistCard({ artist, onEdit, onDelete }: ArtistCardProps) {
     })
   }
 
-  const handleDelete = async () => {
-    try {
-      setIsDeleting(true)
-      await artists.delete(artist.id)
-      setIsDeleteDialogOpen(false)
-      onDelete?.(artist)
-      toast.success("Artist deleted successfully")
-    } catch (error) {
-      console.error("Failed to delete artist:", error)
-      toast.error("Failed to delete artist")
-    } finally {
-      setIsDeleting(false)
-    }
+  const handleDelete = () => {
+    deleteArtistMutation.mutate(artist.id, {
+      onSuccess: () => {
+        setIsDeleteDialogOpen(false)
+      }
+    })
   }
 
   return (
@@ -119,16 +111,16 @@ export function ArtistCard({ artist, onEdit, onDelete }: ArtistCardProps) {
             <Button
               variant="outline"
               onClick={() => setIsDeleteDialogOpen(false)}
-              disabled={isDeleting}
+              disabled={deleteArtistMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleDelete}
-              disabled={isDeleting}
+              disabled={deleteArtistMutation.isPending}
             >
-              {isDeleting ? "Deleting..." : "Delete"}
+              {deleteArtistMutation.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -148,7 +140,7 @@ export function ArtistGrid({ artists, onEdit, onDelete }: ArtistGridProps) {
     <div className="max-w-7xl">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {artists.map((artist) => (
-          <ArtistCard key={artist.id} artist={artist} onEdit={onEdit} onDelete={onDelete} />
+          <ArtistCard key={artist.id} artist={artist} onEdit={onEdit} />
         ))}
       </div>
     </div>

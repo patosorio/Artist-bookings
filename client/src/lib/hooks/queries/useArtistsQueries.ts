@@ -224,16 +224,19 @@ export function useAddArtistNote(artistId: string) {
  * @param artistId - Artist ID
  * @param noteId - Note ID
  */
-export function useUpdateArtistNote(artistId: string, noteId: string) {
+export function useUpdateArtistNote() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: { content: string }) => 
-      artists.updateNote(artistId, noteId, data),
-    onSuccess: (updatedNote) => {
+    mutationFn: ({ artistId, noteId, data }: { 
+      artistId: string; 
+      noteId: string; 
+      data: { content: string } 
+    }) => artists.updateNote(artistId, noteId, data),
+    onSuccess: (updatedNote, variables) => {
       // Invalidate artist detail and notes queries
-      queryClient.invalidateQueries({ queryKey: artistKeys.detail(artistId) })
-      queryClient.invalidateQueries({ queryKey: artistKeys.notes(artistId) })
+      queryClient.invalidateQueries({ queryKey: artistKeys.detail(variables.artistId) })
+      queryClient.invalidateQueries({ queryKey: artistKeys.notes(variables.artistId) })
       
       toast.success('Note updated successfully', {
         description: 'Your changes have been saved.',
@@ -249,18 +252,17 @@ export function useUpdateArtistNote(artistId: string, noteId: string) {
 
 /**
  * Delete an artist note
- * @param artistId - Artist ID
- * @param noteId - Note ID
  */
-export function useDeleteArtistNote(artistId: string, noteId: string) {
+export function useDeleteArtistNote() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => artists.deleteNote(artistId, noteId),
-    onSuccess: () => {
+    mutationFn: ({ artistId, noteId }: { artistId: string; noteId: string }) => 
+      artists.deleteNote(artistId, noteId),
+    onSuccess: (data, variables) => {
       // Invalidate artist detail and notes queries
-      queryClient.invalidateQueries({ queryKey: artistKeys.detail(artistId) })
-      queryClient.invalidateQueries({ queryKey: artistKeys.notes(artistId) })
+      queryClient.invalidateQueries({ queryKey: artistKeys.detail(variables.artistId) })
+      queryClient.invalidateQueries({ queryKey: artistKeys.notes(variables.artistId) })
       
       toast.success('Note deleted successfully', {
         description: 'The note has been removed.',
@@ -307,19 +309,20 @@ export function useAddArtistMember(artistId: string) {
 
 /**
  * Update an artist member
- * @param artistId - Artist ID
- * @param memberId - Member ID
  */
-export function useUpdateArtistMember(artistId: string, memberId: string) {
+export function useUpdateArtistMember() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: ArtistMemberFormData) => 
-      artists.updateMember(artistId, memberId, data),
-    onSuccess: (updatedMember) => {
+    mutationFn: ({ artistId, memberId, data }: { 
+      artistId: string; 
+      memberId: string; 
+      data: ArtistMemberFormData 
+    }) => artists.updateMember(artistId, memberId, data),
+    onSuccess: (updatedMember, variables) => {
       // Invalidate artist detail and members queries
-      queryClient.invalidateQueries({ queryKey: artistKeys.detail(artistId) })
-      queryClient.invalidateQueries({ queryKey: artistKeys.members(artistId) })
+      queryClient.invalidateQueries({ queryKey: artistKeys.detail(variables.artistId) })
+      queryClient.invalidateQueries({ queryKey: artistKeys.members(variables.artistId) })
       
       toast.success('Member updated successfully', {
         description: `${updatedMember.passport_name} has been updated.`,
@@ -335,18 +338,17 @@ export function useUpdateArtistMember(artistId: string, memberId: string) {
 
 /**
  * Delete an artist member
- * @param artistId - Artist ID
- * @param memberId - Member ID
  */
-export function useDeleteArtistMember(artistId: string, memberId: string) {
+export function useDeleteArtistMember() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => artists.deleteMember(artistId, memberId),
-    onSuccess: () => {
+    mutationFn: ({ artistId, memberId }: { artistId: string; memberId: string }) => 
+      artists.deleteMember(artistId, memberId),
+    onSuccess: (data, variables) => {
       // Invalidate artist detail and members queries
-      queryClient.invalidateQueries({ queryKey: artistKeys.detail(artistId) })
-      queryClient.invalidateQueries({ queryKey: artistKeys.members(artistId) })
+      queryClient.invalidateQueries({ queryKey: artistKeys.detail(variables.artistId) })
+      queryClient.invalidateQueries({ queryKey: artistKeys.members(variables.artistId) })
       
       toast.success('Member deleted successfully', {
         description: 'The member has been removed.',

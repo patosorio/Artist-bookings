@@ -60,3 +60,18 @@ export const authKeys = {
   all: ['auth'] as const,
   profile: () => [...authKeys.all, 'profile'] as const,
 }
+
+export const bookingKeys = {
+  all: ['bookings'] as const,
+  lists: () => [...bookingKeys.all, 'list'] as const,
+  list: (filters?: any) => [...bookingKeys.lists(), { filters }] as const,
+  details: () => [...bookingKeys.all, 'detail'] as const,
+  detail: (id: string) => [...bookingKeys.details(), id] as const,
+  enriched: (id: string) => [...bookingKeys.detail(id), 'enriched'] as const,
+  timeline: (id: string) => [...bookingKeys.detail(id), 'timeline'] as const,
+  stats: () => [...bookingKeys.all, 'stats'] as const,
+  byStatus: (status: string) => [...bookingKeys.all, 'by-status', status] as const,
+  byArtist: (artistId: string) => [...bookingKeys.all, 'by-artist', artistId] as const,
+  byVenue: (venueId: string) => [...bookingKeys.all, 'by-venue', venueId] as const,
+  byPromoter: (promoterId: string) => [...bookingKeys.all, 'by-promoter', promoterId] as const,
+}

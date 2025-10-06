@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/v1/', include('contacts.urls')),
     path('api/v1/', include('promoters.urls')),
     path('api/v1/', include('venues.urls')),
+    path('api/v1/', include('bookings.urls')),
 ]
 
 if settings.DEBUG:

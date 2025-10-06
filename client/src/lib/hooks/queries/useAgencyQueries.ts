@@ -114,14 +114,16 @@ export function useInviteUser() {
  * Update a user's role
  * @param userId - User ID to update
  */
-export function useUpdateUserRole(userId: string) {
+export function useUpdateUserRole() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (role: string) => 
+    mutationFn: ({ userId, role }: { userId: string; role: string }) => 
       agencyApi.updateUserRole(userId, role),
     // Optimistic update
-    onMutate: async (newRole) => {
+    onMutate: async (variables) => {
+      const { userId, role: newRole } = variables
+      
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: agencyKeys.users() })
 
@@ -140,15 +142,15 @@ export function useUpdateUserRole(userId: string) {
 
       return { previousUsers }
     },
-    onSuccess: (_data, role) => {
+    onSuccess: (_data, variables) => {
       // Invalidate to get fresh data
       queryClient.invalidateQueries({ queryKey: agencyKeys.users() })
       
       toast.success('User role updated successfully', {
-        description: `User role has been changed to ${role}.`,
+        description: `User role has been changed to ${variables.role}.`,
       })
     },
-    onError: (error: any, _role, context) => {
+    onError: (error: any, _variables, context) => {
       // Rollback on error
       if (context?.previousUsers) {
         queryClient.setQueryData(agencyKeys.users(), context.previousUsers)

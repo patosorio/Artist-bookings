@@ -18,16 +18,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Shield, Users, Activity, DollarSign, UserPlus, Trash2 } from "lucide-react"
-import { useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
 import { useAuthContext } from "@/components/providers/AuthProvider"
 import {
   useAgencyUsers,
   useInviteUser,
+  useUpdateUserRole,
   useRemoveUser,
 } from "@/lib/hooks/queries/useAgencyQueries"
-import { agencyApi } from "@/lib/api/agency-api"
-import { agencyKeys } from "@/lib/queries/queryKeys"
 
 export default function AdminPage() {
   // Check permissions
@@ -36,10 +33,10 @@ export default function AdminPage() {
 
   // Fetch users with TanStack Query
   const { data: users = [], isLoading } = useAgencyUsers()
-  const queryClient = useQueryClient()
 
   // Mutations
   const inviteUserMutation = useInviteUser()
+  const updateRoleMutation = useUpdateUserRole()
   const removeUserMutation = useRemoveUser()
 
   // UI state for dialogs
@@ -91,15 +88,8 @@ export default function AdminPage() {
   ]
 
   // Handlers using TanStack Query mutations
-  const handleRoleChange = async (userId: string, newRole: string) => {
-    try {
-      await agencyApi.updateUserRole(userId, newRole)
-      // Manually invalidate to update the cache
-      queryClient.invalidateQueries({ queryKey: agencyKeys.users() })
-      toast.success(`User role updated to ${newRole}`)
-    } catch (error: any) {
-      toast.error('Failed to update user role')
-    }
+  const handleRoleChange = (userId: string, role: string) => {
+    updateRoleMutation.mutate({ userId, role })
   }
 
   const handleRemoveUser = async (userId: string) => {

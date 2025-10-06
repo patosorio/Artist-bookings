@@ -42,7 +42,6 @@ export default function ArtistsPage() {
     is_active: true
   }
   const [newArtist, setNewArtist] = useState<CreateArtistData>(defaultArtistData)
-
   const [formErrors, setFormErrors] = useState<Record<string, string[]>>({})
 
   const handleCreateArtist = async (e: React.FormEvent) => {

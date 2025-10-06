@@ -1,5 +1,6 @@
 import { apiClient } from "./client"
 import { Artist, CreateArtistData, UpdateArtistData, ArtistNote } from "@/types/artists"
+import { ArtistMember, ArtistMemberFormData } from "@/types/artists"
 
 class ArtistApi {
   private readonly BASE_PATH = "/api/v1/artists"
@@ -48,14 +49,20 @@ class ArtistApi {
     await apiClient.delete(`${this.BASE_PATH}/${artistId}/notes/${noteId}/`)
   }
 
-  // Add these new methods at the end
-  async addMember(artistId: string, data: any): Promise<any> {
+  async addMember(artistId: string, data: ArtistMemberFormData): Promise<ArtistMember> {
     const response = await apiClient.post(`${this.BASE_PATH}/${artistId}/members/`, data)
     return response.data
   }
 
-  async updateMember(artistId: string, memberId: string, data: any): Promise<any> {
-    const response = await apiClient.patch(`${this.BASE_PATH}/${artistId}/members/${memberId}/`, data)
+  async updateMember(
+    artistId: string,
+    memberId: string,
+    data: Partial<ArtistMemberFormData>
+  ): Promise<ArtistMember> {
+    const response = await apiClient.patch(
+      `${this.BASE_PATH}/${artistId}/members/${memberId}/`,
+       data
+    )
     return response.data
   }
 
