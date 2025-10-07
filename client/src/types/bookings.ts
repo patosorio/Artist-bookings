@@ -77,6 +77,7 @@ export interface FinancialBreakdown {
   guarantee_amount: number
   bonus_amount: number
   expenses_amount: number
+  booking_fee_percentage?: number
   booking_fee_amount: number
   total_artist_fee: number
   total_booking_cost: number
@@ -216,6 +217,83 @@ export interface TimelineEvent {
 }
 
 // ============================================================================
+// Extended types for booking detail page features
+// Note: Some features don't have backend support yet
+// ============================================================================
+
+export interface BookingDocument {
+  id: string
+  type: "contract" | "invoice" | "rider" | "itinerary" | "settlement" | "other"
+  category: "promoter_contract" | "artist_invoice" | "promoter_invoice" | "rider" | "settlement" | "other"
+  name: string
+  status: "draft" | "sent" | "signed" | "paid" | "cancelled"
+  uploadedBy: string
+  uploadedAt: string
+  sentTo?: string
+  sentAt?: string
+  signedAt?: string
+  amount?: number
+}
+
+export interface BookingLogistics {
+  id: string
+  type: "transport" | "accommodation" | "catering" | "equipment" | "other"
+  description: string
+  provider?: string
+  contactName?: string
+  contactPhone?: string
+  contactEmail?: string
+  date: string
+  time?: string
+  status: "pending" | "confirmed" | "completed" | "cancelled"
+  cost?: number
+  notes: string
+}
+
+export interface BookingNote {
+  id: string
+  content: string
+  category: "general" | "logistics" | "financial" | "technical" | "urgent"
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  isPinned: boolean
+}
+
+export interface BookingTimelineEvent {
+  id: string
+  type:
+    | "created"
+    | "status_changed"
+    | "contract_sent"
+    | "contract_signed"
+    | "invoice_sent"
+    | "invoice_paid"
+    | "note_added"
+    | "logistics_added"
+    | "document_uploaded"
+    | "other"
+  title: string
+  description: string
+  timestamp: string
+  user: string
+}
+
+export interface BookingContact {
+  role:
+    | "artist_manager"
+    | "venue_contact"
+    | "promoter"
+    | "tech_crew"
+    | "driver"
+    | "other"
+  name: string
+  email?: string
+  phone?: string
+  notes?: string
+}
+
+// ============================================================================
 // Statistics
 // ============================================================================
 
@@ -256,6 +334,7 @@ export interface CreateBookingData {
   expenses_amount?: number
   percentage_split?: number
   door_percentage?: number
+  booking_fee_percentage?: number
   booking_fee_amount?: number
   
   // Optional
@@ -291,6 +370,7 @@ export interface UpdateBookingData {
   expenses_amount?: number
   percentage_split?: number
   door_percentage?: number
+  booking_fee_percentage?: number
   booking_fee_amount?: number
   
   // Booking info

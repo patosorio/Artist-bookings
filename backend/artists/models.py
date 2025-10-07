@@ -1,7 +1,7 @@
 from django.db import models
 from decimal import Decimal
 from typing import Optional
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, RegexValidator
 from django_countries.fields import CountryField
 from agencies.models import Agency, UserProfile
 from config.models import TimestampedModel
@@ -47,6 +47,19 @@ class Artist(TimestampedModel):
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
     bio = models.TextField(blank=True)
+
+    # Visual customization
+    color = models.CharField(
+        max_length=7,
+        default='#3B82F6',
+        validators=[
+            RegexValidator(
+                regex=r'^#[0-9A-Fa-f]{6}$',
+                message='Color must be a valid hex color code (e.g., #FF5733)',
+            )
+        ],
+        help_text='Hex color code for calendar and table visualization (e.g., #FF5733)'
+    )
 
     # Status
     is_active = models.BooleanField(default=True)

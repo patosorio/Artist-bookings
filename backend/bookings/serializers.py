@@ -93,17 +93,17 @@ class BookingListSerializer(serializers.ModelSerializer):
     def get_artist_name(self, obj):
         """Get artist name from related model."""
         artist = obj.get_artist()
-        return artist.name if artist else 'Unknown Artist'
+        return artist.artist_name if artist else 'Unknown Artist'
     
     def get_promoter_name(self, obj):
         """Get promoter name from related model."""
         promoter = obj.get_promoter()
-        return promoter.name if promoter else 'Unknown Promoter'
+        return promoter.promoter_name if promoter else 'Unknown Promoter'
     
     def get_venue_name(self, obj):
         """Get venue name from related model."""
         venue = obj.get_venue()
-        return venue.name if venue else 'Unknown Venue'
+        return venue.venue_name if venue else 'Unknown Venue'
 
 
 class BookingDetailSerializer(serializers.ModelSerializer):
@@ -149,17 +149,17 @@ class BookingDetailSerializer(serializers.ModelSerializer):
     def get_artist_name(self, obj):
         """Get artist name."""
         artist = obj.get_artist()
-        return artist.name if artist else None
+        return artist.artist_name if artist else None
     
     def get_promoter_name(self, obj):
         """Get promoter name."""
         promoter = obj.get_promoter()
-        return promoter.name if promoter else None
+        return promoter.promoter_name if promoter else None
     
     def get_venue_name(self, obj):
         """Get venue name."""
         venue = obj.get_venue()
-        return venue.name if venue else None
+        return venue.venue_name if venue else None
     
     def get_promoter_contact_name(self, obj):
         """Get promoter contact name."""
@@ -211,6 +211,12 @@ class BookingDetailSerializer(serializers.ModelSerializer):
                     'door_percentage': 'Door percentage must be between 0 and 100.'
                 })
         
+        if 'booking_fee_percentage' in data and data['booking_fee_percentage'] is not None:
+            if not (0 <= data['booking_fee_percentage'] <= 100):
+                raise serializers.ValidationError({
+                    'booking_fee_percentage': 'Booking fee percentage must be between 0 and 100.'
+                })
+        
         # Validate invoice date logic
         if data.get('artist_fee_invoice_paid_date'):
             if not data.get('artist_fee_invoice_sent_date'):
@@ -250,6 +256,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
         fields = [
+            'id',
             'agency',
             'booking_date',
             'status',
@@ -279,8 +286,10 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             'travel_requirements',
             'notes',
             'is_private',
+            'booking_fee_percentage',
             'booking_fee_amount'
         ]
+        read_only_fields = ['id']
     
     def validate(self, data):
         """Validate related entities exist and belong to the same agency."""
@@ -347,8 +356,8 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         """Create booking with user tracking."""
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
-            validated_data['created_by'] = request.user.userprofile
-            validated_data['updated_by'] = request.user.userprofile
+            validated_data['created_by'] = request.user.profile
+            validated_data['updated_by'] = request.user.profile
         
         return super().create(validated_data)
 
@@ -389,6 +398,7 @@ class BookingUpdateSerializer(serializers.ModelSerializer):
             'booking_fee_invoice_sent_date',
             'booking_fee_invoice_due_date',
             'booking_fee_invoice_paid_date',
+            'booking_fee_percentage',
             'booking_fee_amount',
             'itinerary_status',
             'technical_requirements',
@@ -405,7 +415,7 @@ class BookingUpdateSerializer(serializers.ModelSerializer):
         """Update booking with user tracking."""
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
-            validated_data['updated_by'] = request.user.userprofile
+            validated_data['updated_by'] = request.user.profile
         
         # Auto-set cancellation date if marking as cancelled
         if validated_data.get('is_cancelled') and not instance.is_cancelled:
@@ -435,6 +445,7 @@ class BookingFinancialBreakdownSerializer(serializers.Serializer):
     guarantee_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     bonus_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     expenses_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    booking_fee_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
     booking_fee_amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     total_artist_fee = serializers.DecimalField(max_digits=12, decimal_places=2)
     total_booking_cost = serializers.DecimalField(max_digits=12, decimal_places=2)
@@ -568,15 +579,15 @@ class EnrichedBookingDetailSerializer(serializers.ModelSerializer):
     
     def get_artist_name(self, obj):
         artist = obj.get_artist()
-        return artist.name if artist else 'Unknown Artist'
+        return artist.artist_name if artist else 'Unknown Artist'
     
     def get_promoter_name(self, obj):
         promoter = obj.get_promoter()
-        return promoter.name if promoter else 'Unknown Promoter'
+        return promoter.promoter_name if promoter else 'Unknown Promoter'
     
     def get_venue_name(self, obj):
         venue = obj.get_venue()
-        return venue.name if venue else 'Unknown Venue'
+        return venue.venue_name if venue else 'Unknown Venue'
     
     def get_promoter_contact_name(self, obj):
         contact = obj.get_promoter_contact()
@@ -599,6 +610,7 @@ class EnrichedBookingDetailSerializer(serializers.ModelSerializer):
             'guarantee_amount': obj.guarantee_amount,
             'bonus_amount': obj.bonus_amount,
             'expenses_amount': obj.expenses_amount,
+            'booking_fee_percentage': obj.booking_fee_percentage,
             'booking_fee_amount': obj.booking_fee_amount,
             'total_artist_fee': obj.total_artist_fee,
             'total_booking_cost': obj.total_booking_cost,

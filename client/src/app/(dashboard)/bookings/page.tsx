@@ -1,12 +1,15 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Calendar } from "lucide-react"
+import { Plus, Calendar, TableIcon } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useBookings } from "@/lib/hooks/queries/useBookingsQueries"
+import { useArtists } from "@/lib/hooks/queries/useArtistsQueries"
 import { BookingsTable } from "@/components/bookings/BookingsTable"
-import Link from "next/link"
+import { BookingsCalendar } from "@/components/bookings/BookingsCalendar"
+import { BookingForm } from "@/components/bookings/forms/BookingForm"
 
 /**
  * Bookings List Page
@@ -19,10 +22,39 @@ import Link from "next/link"
  */
 
 export default function BookingsPage() {
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const [selectedView, setSelectedView] = useState<"table" | "calendar">("table")
+  const [selectedArtistId, setSelectedArtistId] = useState<string>("all")
+  
   // TanStack Query hooks
-  const { data: bookingsList = [], isLoading } = useBookings()
+  const { data: bookingsList = [], isLoading: bookingsLoading } = useBookings()
+  const { data: artistsList = [], isLoading: artistsLoading } = useArtists()
 
-  if (isLoading) {
+  // Create artist color map and simplified artist list
+  const artistData = useMemo(() => {
+    return artistsList.map((artist) => ({
+      id: artist.id,
+      artist_name: artist.artist_name,
+      color: artist.color || "#3B82F6",
+    }))
+  }, [artistsList])
+
+  const artistColorMap = useMemo(() => {
+    return artistData.reduce((acc, artist) => {
+      acc[artist.id] = artist.color
+      return acc
+    }, {} as Record<string, string>)
+  }, [artistData])
+
+  // Filter bookings by selected artist
+  const filteredBookings = useMemo(() => {
+    if (selectedArtistId === "all") {
+      return bookingsList
+    }
+    return bookingsList.filter((booking) => booking.artist_id === selectedArtistId)
+  }, [bookingsList, selectedArtistId])
+
+  if (bookingsLoading || artistsLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-200px)]">
         <div className="text-center space-y-4">
@@ -42,11 +74,9 @@ export default function BookingsPage() {
             Manage your bookings, contracts, and event schedules
           </p>
         </div>
-        <Button asChild>
-          <Link href="/bookings/create">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Booking
-          </Link>
+        <Button onClick={() => setIsFormOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Booking
         </Button>
       </div>
 
@@ -63,18 +93,64 @@ export default function BookingsPage() {
                 invoices all in one place.
               </p>
             </div>
-            <Button asChild size="lg">
-              <Link href="/bookings/create">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Your First Booking
-              </Link>
+            <Button size="lg" onClick={() => setIsFormOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Booking
             </Button>
           </div>
         </div>
       ) : (
-        <BookingsTable bookings={bookingsList} />
+        <Tabs value={selectedView} onValueChange={(value) => setSelectedView(value as "table" | "calendar")} className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="table" className="flex items-center gap-2">
+              <TableIcon className="h-4 w-4" />
+              Table View
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Calendar View
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="table" className="mt-6">
+            <BookingsTable
+              bookings={filteredBookings}
+              artists={artistData}
+              selectedArtistId={selectedArtistId}
+              onArtistFilterChange={setSelectedArtistId}
+            />
+          </TabsContent>
+
+          <TabsContent value="calendar" className="mt-6">
+            <div className="space-y-4">
+              {/* Artist filter for calendar */}
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Filter by Artist:</label>
+                <select
+                  value={selectedArtistId}
+                  onChange={(e) => setSelectedArtistId(e.target.value)}
+                  className="px-3 py-2 border border-input bg-background rounded-md text-sm min-w-[200px]"
+                >
+                  <option value="all">All Artists</option>
+                  {artistData.map((artist) => (
+                    <option key={artist.id} value={artist.id}>
+                      {artist.artist_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <BookingsCalendar
+                bookings={filteredBookings}
+                artistColors={artistColorMap}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       )}
+
+      {/* Booking Form Dialog */}
+      <BookingForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} />
     </div>
   )
 }
-

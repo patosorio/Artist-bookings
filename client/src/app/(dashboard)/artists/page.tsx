@@ -38,6 +38,7 @@ export default function ArtistsPage() {
     email: "",
     phone: "",
     bio: "",
+    color: "#3B82F6",
     status: "active",
     is_active: true
   }
@@ -79,6 +80,7 @@ export default function ArtistsPage() {
         email: editingArtist.email,
         phone: editingArtist.phone,
         bio: editingArtist.bio,
+        color: editingArtist.color,
         status: editingArtist.status,
         is_active: editingArtist.is_active
       }
@@ -220,6 +222,28 @@ export default function ArtistsPage() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="color">Color</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="color"
+                    type="color"
+                    value={newArtist.color}
+                    onChange={(e) => setNewArtist({ ...newArtist, color: e.target.value })}
+                    className="w-20 h-10 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={newArtist.color}
+                    onChange={(e) => setNewArtist({ ...newArtist, color: e.target.value })}
+                    placeholder="#3B82F6"
+                    className="flex-1"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Color used for calendar events and table rows
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
                 <Select
                   value={newArtist.status}
@@ -357,6 +381,28 @@ export default function ArtistsPage() {
                 {formErrors.bio && (
                   <p className="text-sm text-destructive">{formErrors.bio[0]}</p>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_color">Color</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="edit_color"
+                    type="color"
+                    value={editingArtist?.color || "#3B82F6"}
+                    onChange={(e) => setEditingArtist(prev => prev ? {...prev, color: e.target.value} : null)}
+                    className="w-20 h-10 cursor-pointer"
+                  />
+                  <Input
+                    type="text"
+                    value={editingArtist?.color || "#3B82F6"}
+                    onChange={(e) => setEditingArtist(prev => prev ? {...prev, color: e.target.value} : null)}
+                    placeholder="#3B82F6"
+                    className="flex-1"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Color used for calendar events and table rows
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit_status">Status</Label>

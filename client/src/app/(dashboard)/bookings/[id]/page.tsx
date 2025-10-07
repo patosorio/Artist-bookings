@@ -1,71 +1,338 @@
 "use client"
 
-import { useParams } from "next/navigation"
+import type React from "react"
+import { useEffect, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Separator } from "@/components/ui/separator"
-import { Clock, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
+import { Clock, AlertCircle, CheckCircle2, Send, XCircle } from "lucide-react"
 
-// TanStack Query hooks
+// API hooks
 import { useEnrichedBooking, useBookingTimeline } from "@/lib/hooks/queries/useBookingsQueries"
 
-// UI Components
+// Components
 import {
   BookingHeader,
-  BookingProgress,
-  BookingDetails,
-  ContractStatusCard,
-  FinancialTab,
-  ScheduleTab,
-  RequirementsTab,
+  BookingProgressCard,
+  BookingDetailsCard,
+  DocumentsTab,
+  LogisticsTab,
+  ContactsTab,
   TimelineTab,
+  NotesTab,
 } from "@/components/bookings/[id]"
 
-/**
- * Booking Detail Page
- * 
- * Architecture:
- * - UI Layer: This page component (minimal logic, composition only)
- * - Query Layer: useEnrichedBooking, useBookingTimeline (TanStack Query hooks)
- * - API Layer: bookings.fetchEnrichedBooking, bookings.fetchBookingTimeline
- * - Network Layer: apiClient -> Django backend
- */
+// Types
+import type {
+  BookingDocument,
+  BookingLogistics,
+  BookingNote,
+  BookingTimelineEvent,
+  BookingContact,
+} from "@/types/bookings"
+
 export default function BookingDetailPage() {
   const params = useParams()
   const router = useRouter()
   const bookingId = params.id as string
 
-  // Fetch enriched booking data (includes all nested data)
+  // Fetch booking data from backend
   const { data: booking, isLoading, error } = useEnrichedBooking(bookingId)
-  
-  // Fetch booking timeline/history
-  const { data: timeline = [] } = useBookingTimeline(bookingId)
+  const { data: backendTimeline = [] } = useBookingTimeline(bookingId)
 
-  // Helper functions
-  const getStatusColor = (status: string): "default" | "secondary" | "destructive" | "outline" => {
-    const statusMap: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-      confirmed: "default",
-      signed: "default",
-      paid: "default",
-      sent: "secondary",
-      draft: "outline",
-      pending: "outline",
-      cancelled: "destructive",
+  // ============================================================================
+  // Local State (Features without backend support yet)
+  // TODO: Connect these to backend APIs when available
+  // ============================================================================
+  const [documents, setDocuments] = useState<BookingDocument[]>([])
+  const [logistics, setLogistics] = useState<BookingLogistics[]>([])
+  const [notes, setNotes] = useState<BookingNote[]>([])
+  const [timeline, setTimeline] = useState<BookingTimelineEvent[]>([])
+  const [contacts, setContacts] = useState<BookingContact[]>([])
+
+  // Dialog states
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [isLogisticsDialogOpen, setIsLogisticsDialogOpen] = useState(false)
+  const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false)
+  const [isContactDialogOpen, setIsContactDialogOpen] = useState(false)
+
+  // Form states
+  interface NewDocumentForm {
+    type: "contract" | "invoice" | "rider" | "itinerary" | "settlement" | "other"
+    category: "promoter_contract" | "artist_invoice" | "promoter_invoice" | "rider" | "settlement" | "other"
+    name: string
+    amount: number
+  }
+
+  interface NewNoteForm {
+    content: string
+    category: "general" | "logistics" | "financial" | "technical" | "urgent"
+    isPinned: boolean
+  }
+
+  const [newDocument, setNewDocument] = useState<NewDocumentForm>({
+    type: "contract",
+    category: "promoter_contract",
+    name: "",
+    amount: 0,
+  })
+
+  const [newLogistics, setNewLogistics] = useState<Partial<BookingLogistics>>({
+    type: "transport",
+    description: "",
+    provider: "",
+    contactName: "",
+    contactPhone: "",
+    contactEmail: "",
+    date: "",
+    time: "",
+    status: "pending",
+    cost: 0,
+    notes: "",
+  })
+
+  const [newNote, setNewNote] = useState<NewNoteForm>({
+    content: "",
+    category: "general",
+    isPinned: false,
+  })
+
+  const [newContact, setNewContact] = useState<BookingContact>({
+    role: "other",
+    name: "",
+    email: "",
+    phone: "",
+    notes: "",
+  })
+
+  // ============================================================================
+  // Effects - Initialize data from booking
+  // ============================================================================
+
+  // Initialize contacts from booking data
+  useEffect(() => {
+    if (booking && contacts.length === 0) {
+      const initialContacts: BookingContact[] = []
+      
+      if (booking.promoter_name) {
+        initialContacts.push({
+          role: "promoter",
+          name: booking.promoter_name,
+          email: "",
+          phone: "",
+          notes: "",
+        })
+      }
+
+      setContacts(initialContacts)
     }
-    return statusMap[status?.toLowerCase()] || "outline"
+  }, [booking, contacts.length])
+
+  // Convert backend timeline to local timeline format
+  useEffect(() => {
+    if (backendTimeline.length > 0 && timeline.length === 0) {
+      const convertedTimeline: BookingTimelineEvent[] = backendTimeline.map((event, index) => ({
+        id: index.toString(),
+        type: event.type as BookingTimelineEvent["type"],
+        title: event.event,
+        description: event.event,
+        timestamp: event.date,
+        user: event.user || "System",
+      }))
+      setTimeline(convertedTimeline)
+    }
+  }, [backendTimeline, timeline.length])
+
+  // ============================================================================
+  // Business Logic - Handlers
+  // ============================================================================
+
+  const handleUploadDocument = (e: React.FormEvent) => {
+    e.preventDefault()
+    const doc: BookingDocument = {
+      id: Date.now().toString(),
+      ...newDocument,
+      status: "draft",
+      uploadedBy: "Current User",
+      uploadedAt: new Date().toISOString(),
+    }
+    setDocuments((prev) => [...prev, doc])
+    setIsUploadDialogOpen(false)
+    setNewDocument({ type: "contract", category: "promoter_contract", name: "", amount: 0 })
+
+    addTimelineEvent("document_uploaded", "Document Uploaded", `${doc.name} uploaded`)
   }
 
-  const formatDate = (date?: string) => {
-    if (!date) return "—"
-    return new Date(date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
+  const handleSendDocument = (docId: string) => {
+    setDocuments((prev) =>
+      prev.map((doc) =>
+        doc.id === docId
+          ? {
+              ...doc,
+              status: "sent" as const,
+              sentAt: new Date().toISOString(),
+              sentTo: booking?.promoter_name,
+            }
+          : doc
+      )
+    )
+    addTimelineEvent("contract_sent", "Document Sent", "Document sent to promoter")
+  }
+
+  const handleAddLogistics = (e: React.FormEvent) => {
+    e.preventDefault()
+    const logisticsItem: BookingLogistics = {
+      id: Date.now().toString(),
+      type: newLogistics.type!,
+      description: newLogistics.description!,
+      provider: newLogistics.provider,
+      contactName: newLogistics.contactName,
+      contactPhone: newLogistics.contactPhone,
+      contactEmail: newLogistics.contactEmail,
+      date: newLogistics.date!,
+      time: newLogistics.time,
+      status: newLogistics.status!,
+      cost: newLogistics.cost,
+      notes: newLogistics.notes!,
+    }
+    setLogistics((prev) => [...prev, logisticsItem])
+    setIsLogisticsDialogOpen(false)
+    setNewLogistics({
+      type: "transport",
+      description: "",
+      provider: "",
+      contactName: "",
+      contactPhone: "",
+      contactEmail: "",
+      date: "",
+      time: "",
+      status: "pending",
+      cost: 0,
+      notes: "",
     })
+
+    addTimelineEvent("logistics_added", "Logistics Added", logisticsItem.description)
   }
 
-  // Loading state
+  const handleDeleteLogistics = (id: string) => {
+    setLogistics((prev) => prev.filter((l) => l.id !== id))
+  }
+
+  const handleAddNote = (e: React.FormEvent) => {
+    e.preventDefault()
+    const note: BookingNote = {
+      id: Date.now().toString(),
+      content: newNote.content,
+      category: newNote.category,
+      createdBy: "Current User",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isPinned: newNote.isPinned,
+    }
+    setNotes((prev) => [note, ...prev])
+    setIsNoteDialogOpen(false)
+    setNewNote({ content: "", category: "general", isPinned: false })
+
+    addTimelineEvent("note_added", "Note Added", note.content.substring(0, 50) + "...")
+  }
+
+  const handleDeleteNote = (id: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id))
+  }
+
+  const handleTogglePin = (id: string) => {
+    setNotes((prev) =>
+      prev.map((note) => (note.id === id ? { ...note, isPinned: !note.isPinned } : note))
+    )
+  }
+
+  const handleAddContact = (e: React.FormEvent) => {
+    e.preventDefault()
+    setContacts((prev) => [...prev, newContact])
+    setIsContactDialogOpen(false)
+    setNewContact({ role: "other", name: "", email: "", phone: "", notes: "" })
+  }
+
+  const addTimelineEvent = (
+    type: BookingTimelineEvent["type"],
+    title: string,
+    description: string
+  ) => {
+    const event: BookingTimelineEvent = {
+      id: Date.now().toString(),
+      type,
+      title,
+      description,
+      timestamp: new Date().toISOString(),
+      user: "Current User",
+    }
+    setTimeline((prev) => [event, ...prev])
+  }
+
+  // ============================================================================
+  // Helper Functions
+  // ============================================================================
+
+  const calculateProgress = () => {
+    if (!booking) return 0
+    return booking.progress?.completion_percentage || 0
+  }
+
+  const getStatusColor = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status?.toLowerCase()) {
+      case "confirmed":
+      case "signed":
+      case "paid":
+        return "default"
+      case "sent":
+        return "secondary"
+      case "draft":
+      case "pending":
+        return "outline"
+      case "cancelled":
+        return "destructive"
+      default:
+        return "outline"
+    }
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case "signed":
+      case "paid":
+      case "confirmed":
+        return CheckCircle2
+      case "sent":
+        return Send
+      case "draft":
+      case "pending":
+        return Clock
+      case "cancelled":
+        return XCircle
+      default:
+        return AlertCircle
+    }
+  }
+
+  const getNoteCategoryColor = (category: string) => {
+    switch (category) {
+      case "urgent":
+        return "bg-red-100 border-red-300 text-red-900"
+      case "financial":
+        return "bg-green-100 border-green-300 text-green-900"
+      case "technical":
+        return "bg-blue-100 border-blue-300 text-blue-900"
+      case "logistics":
+        return "bg-purple-100 border-purple-300 text-purple-900"
+      default:
+        return "bg-yellow-100 border-yellow-300 text-yellow-900"
+    }
+  }
+
+  // ============================================================================
+  // Loading & Error States
+  // ============================================================================
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -77,7 +344,6 @@ export default function BookingDetailPage() {
     )
   }
 
-  // Error state
   if (error || !booking) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -94,61 +360,99 @@ export default function BookingDetailPage() {
     )
   }
 
+  const progress = calculateProgress()
+
+  // ============================================================================
+  // Render
+  // ============================================================================
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
       <BookingHeader
         booking={booking}
-        formatDate={formatDate}
-        getStatusColor={getStatusColor}
+        onBack={() => router.back()}
         onEdit={() => {
-          // TODO: Implement edit functionality when needed
+          // TODO: Implement edit functionality
           console.log("Edit booking", bookingId)
         }}
+        getStatusColor={getStatusColor}
       />
 
-      <Separator />
-
       {/* Progress Card */}
-      <BookingProgress progress={booking.progress} />
+      <BookingProgressCard booking={booking} progress={progress} logistics={logistics} />
 
-      <Separator />
+      {/* Main Content Grid */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Booking Details Card */}
+        <BookingDetailsCard booking={booking} />
 
-      {/* Main Content Layout: Sidebar + Tabs */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Sidebar: Booking Details */}
-        <div className="lg:col-span-1 space-y-6">
-          <BookingDetails booking={booking} formatDate={formatDate} />
-          <ContractStatusCard
-            contractStatus={booking.contract_status_summary}
-            formatDate={formatDate}
-          />
-        </div>
-
-        {/* Right Content: Tabs */}
-        <div className="lg:col-span-2">
-          <Tabs defaultValue="financial" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="financial">Financial</TabsTrigger>
-              <TabsTrigger value="schedule">Schedule</TabsTrigger>
-              <TabsTrigger value="requirements">Requirements</TabsTrigger>
+        {/* Tabs Content */}
+        <div className="md:col-span-2">
+          <Tabs defaultValue="documents" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="logistics">Logistics</TabsTrigger>
+              <TabsTrigger value="contacts">Contacts</TabsTrigger>
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="notes">Notes</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="financial">
-              <FinancialTab financial={booking.financial_breakdown} />
+            <TabsContent value="documents">
+              <DocumentsTab
+                booking={booking}
+                documents={documents}
+                isUploadDialogOpen={isUploadDialogOpen}
+                setIsUploadDialogOpen={setIsUploadDialogOpen}
+                newDocument={newDocument}
+                setNewDocument={setNewDocument}
+                handleUploadDocument={handleUploadDocument}
+                handleSendDocument={handleSendDocument}
+                getStatusColor={getStatusColor}
+                getStatusIcon={getStatusIcon}
+              />
             </TabsContent>
 
-            <TabsContent value="schedule">
-              <ScheduleTab schedule={booking.event_schedule} />
+            <TabsContent value="logistics">
+              <LogisticsTab
+                logistics={logistics}
+                isLogisticsDialogOpen={isLogisticsDialogOpen}
+                setIsLogisticsDialogOpen={setIsLogisticsDialogOpen}
+                newLogistics={newLogistics}
+                setNewLogistics={setNewLogistics}
+                handleAddLogistics={handleAddLogistics}
+                handleDeleteLogistics={handleDeleteLogistics}
+                getStatusColor={getStatusColor}
+              />
             </TabsContent>
 
-            <TabsContent value="requirements">
-              <RequirementsTab requirements={booking.requirements} />
+            <TabsContent value="contacts">
+              <ContactsTab
+                contacts={contacts}
+                isContactDialogOpen={isContactDialogOpen}
+                setIsContactDialogOpen={setIsContactDialogOpen}
+                newContact={newContact}
+                setNewContact={setNewContact}
+                handleAddContact={handleAddContact}
+              />
             </TabsContent>
 
             <TabsContent value="timeline">
-              <TimelineTab timeline={timeline} formatDate={formatDate} />
+              <TimelineTab timeline={timeline} />
+            </TabsContent>
+
+            <TabsContent value="notes">
+              <NotesTab
+                notes={notes}
+                isNoteDialogOpen={isNoteDialogOpen}
+                setIsNoteDialogOpen={setIsNoteDialogOpen}
+                newNote={newNote}
+                setNewNote={setNewNote}
+                handleAddNote={handleAddNote}
+                handleDeleteNote={handleDeleteNote}
+                handleTogglePin={handleTogglePin}
+                getNoteCategoryColor={getNoteCategoryColor}
+              />
             </TabsContent>
           </Tabs>
         </div>
