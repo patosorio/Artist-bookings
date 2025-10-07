@@ -299,12 +299,20 @@ class Booking(TimestampedModel):
         blank=True,
         help_text='When promoter paid booking fee'
     )
+    booking_fee_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text='Agency commission percentage (e.g., 15.00 for 15%)'
+    )
     booking_fee_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=Decimal('0.00'),
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text='Agency commission/booking fee amount'
+        help_text='Agency commission/booking fee amount (auto-calculated if percentage is set)'
     )
     
     # Itinerary management
@@ -401,12 +409,18 @@ class Booking(TimestampedModel):
         return f"{self.booking_reference or f'Booking-{str(self.id)[:8]}'} - {self.booking_date.date()}"
     
     def save(self, *args, **kwargs):
-        """Generate booking reference if not provided."""
+        """Generate booking reference and calculate booking fee if not provided."""
         if not self.booking_reference:
             # Generate a booking reference like: BK-2025-001234
             year = datetime.now().year
             # You might want to implement a more sophisticated numbering system
             self.booking_reference = f"BK-{year}-{str(self.id)[:6].upper()}"
+        
+        # Auto-calculate booking fee amount if percentage is set
+        if self.booking_fee_percentage is not None:
+            guarantee = self.guarantee_amount or Decimal('0.00')
+            self.booking_fee_amount = (guarantee * self.booking_fee_percentage / Decimal('100.00')).quantize(Decimal('0.01'))
+        
         super().save(*args, **kwargs)
     
     # === COMPUTED PROPERTIES ===

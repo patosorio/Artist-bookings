@@ -14,6 +14,7 @@ export interface ArtistSocialLinks {
     email: string
     phone: string
     bio: string
+    color: string
     is_active: boolean
     status: 'active' | 'inactive'
     social_links?: ArtistSocialLinks
@@ -75,6 +76,7 @@ export interface ArtistSocialLinks {
     email: string
     phone?: string
     bio?: string
+    color?: string
     status?: 'active' | 'inactive'
     is_active?: boolean
   }

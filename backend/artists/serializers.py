@@ -106,6 +106,7 @@ class ArtistSerializer(CountryFieldMixin, serializers.ModelSerializer):
             'email',
             'phone',
             'bio',
+            'color',
             'is_active',
             'status',
             'social_links',

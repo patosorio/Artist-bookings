@@ -83,8 +83,8 @@ class BookingAdminForm(forms.ModelForm):
             agency = self.instance.agency
         elif 'agency' in self.initial:
             agency = self.initial['agency']
-        elif self.request and hasattr(self.request, 'user') and hasattr(self.request.user, 'userprofile'):
-            agency = self.request.user.userprofile.agency
+        elif self.request and hasattr(self.request, 'user') and hasattr(self.request.user, 'profile'):
+            agency = self.request.user.profile.agency
         
         # Set querysets based on agency
         if agency:
@@ -290,6 +290,7 @@ class BookingAdmin(admin.ModelAdmin):
                 'guarantee_amount',
                 'bonus_amount',
                 'expenses_amount',
+                'booking_fee_percentage',
                 'booking_fee_amount',
                 'percentage_split',
                 'door_percentage',

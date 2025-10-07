@@ -41,7 +41,7 @@ class BookingTypeViewSet(viewsets.ModelViewSet):
     
     queryset = BookingType.objects.all()
     serializer_class = BookingTypeSerializer
-    permission_classes = [IsAuthenticated, IsAgencyMember]
+    permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at']
@@ -49,15 +49,15 @@ class BookingTypeViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filter booking types by user's agency."""
-        if hasattr(self.request.user, 'userprofile'):
+        if hasattr(self.request.user, 'profile'):
             return BookingType.objects.filter(
-                agency=self.request.user.userprofile.agency
+                agency=self.request.user.profile.agency
             )
         return BookingType.objects.none()
     
     def perform_create(self, serializer):
         """Set agency from user profile on creation."""
-        serializer.save(agency=self.request.user.userprofile.agency)
+        serializer.save(agency=self.request.user.profile.agency)
 
 
 class BookingViewSet(viewsets.ModelViewSet):
@@ -87,7 +87,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     - POST /api/bookings/{id}/mark_booking_paid/ - Mark booking fee as paid
     """
     
-    permission_classes = [IsAuthenticated, IsAgencyMember]
+    permission_classes = [IsAuthenticated]
     filter_backends = [
         DjangoFilterBackend,
         filters.SearchFilter,
@@ -119,11 +119,11 @@ class BookingViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filter bookings by user's agency with optimizations."""
-        if not hasattr(self.request.user, 'userprofile'):
+        if not hasattr(self.request.user, 'profile'):
             return Booking.objects.none()
         
         queryset = Booking.objects.filter(
-            agency=self.request.user.userprofile.agency
+            agency=self.request.user.profile.agency
         ).select_related('booking_type')
         
         # Apply custom filters
@@ -169,7 +169,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Set agency from user profile on creation."""
-        serializer.save(agency=self.request.user.userprofile.agency)
+        serializer.save(agency=self.request.user.profile.agency)
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -387,7 +387,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             )
         
         booking.status = Booking.BookingStatus.CONFIRMED
-        booking.updated_by = request.user.userprofile
+        booking.updated_by = request.user.profile
         booking.save()
         
         serializer = self.get_serializer(booking)
@@ -409,7 +409,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         booking.cancellation_reason = reason
         booking.cancellation_date = timezone.now()
         booking.status = Booking.BookingStatus.CANCELLED
-        booking.updated_by = request.user.userprofile
+        booking.updated_by = request.user.profile
         booking.save()
         
         serializer = self.get_serializer(booking)
@@ -422,7 +422,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         
         booking.contract_status = Booking.ContractStatus.SENT
         booking.contract_sent_date = timezone.now()
-        booking.updated_by = request.user.userprofile
+        booking.updated_by = request.user.profile
         booking.save()
         
         serializer = self.get_serializer(booking)
@@ -441,7 +441,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         
         booking.contract_status = Booking.ContractStatus.SIGNED
         booking.contract_signed_date = timezone.now()
-        booking.updated_by = request.user.userprofile
+        booking.updated_by = request.user.profile
         booking.save()
         
         serializer = self.get_serializer(booking)
@@ -457,7 +457,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         booking.artist_fee_invoice_sent_date = timezone.now()
         if due_date:
             booking.artist_fee_invoice_due_date = due_date
-        booking.updated_by = request.user.userprofile
+        booking.updated_by = request.user.profile
         booking.save()
         
         serializer = self.get_serializer(booking)
@@ -476,7 +476,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         
         booking.artist_fee_invoice_status = Booking.InvoiceStatus.PAID
         booking.artist_fee_invoice_paid_date = timezone.now()
-        booking.updated_by = request.user.userprofile
+        booking.updated_by = request.user.profile
         booking.save()
         
         serializer = self.get_serializer(booking)
@@ -492,7 +492,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         booking.booking_fee_invoice_sent_date = timezone.now()
         if due_date:
             booking.booking_fee_invoice_due_date = due_date
-        booking.updated_by = request.user.userprofile
+        booking.updated_by = request.user.profile
         booking.save()
         
         serializer = self.get_serializer(booking)
@@ -511,7 +511,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         
         booking.booking_fee_invoice_status = Booking.InvoiceStatus.PAID
         booking.booking_fee_invoice_paid_date = timezone.now()
-        booking.updated_by = request.user.userprofile
+        booking.updated_by = request.user.profile
         booking.save()
         
         serializer = self.get_serializer(booking)

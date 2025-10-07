@@ -1,23 +1,20 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Edit } from "lucide-react"
-import { useRouter } from "next/navigation"
 import type { EnrichedBooking } from "@/types/bookings"
 
 interface BookingHeaderProps {
   booking: EnrichedBooking
-  formatDate: (date?: string) => string
+  onBack: () => void
+  onEdit: () => void
   getStatusColor: (status: string) => "default" | "secondary" | "destructive" | "outline"
-  onEdit?: () => void
 }
 
-export function BookingHeader({ booking, formatDate, getStatusColor, onEdit }: BookingHeaderProps) {
-  const router = useRouter()
-
+export function BookingHeader({ booking, onBack, onEdit, getStatusColor }: BookingHeaderProps) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-4">
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+        <Button variant="ghost" size="icon" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
@@ -25,7 +22,12 @@ export function BookingHeader({ booking, formatDate, getStatusColor, onEdit }: B
             {booking.artist_name} at {booking.venue_name}
           </h1>
           <p className="text-muted-foreground">
-            {formatDate(booking.booking_date)} • {booking.location.city}, {booking.location.country_name}
+            {new Date(booking.booking_date).toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
           </p>
         </div>
       </div>
@@ -33,12 +35,10 @@ export function BookingHeader({ booking, formatDate, getStatusColor, onEdit }: B
         <Badge variant={getStatusColor(booking.status)} className="text-base px-4 py-1">
           {booking.status}
         </Badge>
-        {onEdit && (
-          <Button variant="outline" onClick={onEdit}>
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Booking
-          </Button>
-        )}
+        <Button variant="outline" onClick={onEdit}>
+          <Edit className="h-4 w-4 mr-2" />
+          Edit Booking
+        </Button>
       </div>
     </div>
   )
